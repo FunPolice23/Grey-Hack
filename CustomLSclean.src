@@ -1,0 +1,86 @@
+// Custom LS Script
+// Usage: ls [directory]
+
+cyan = "<color=#0EC6FE>"
+orange = "<color=#FF8D08>"
+purple = "<color=#AC0BC3>"
+gold = "<color=#E0E10C>"
+green = "<color=#2CC018>"
+red = "<color=#FF0000>"
+cend = "</color>"
+permString = "PERMISSON"
+ownerString = "OWNER"
+groupString = "GROUP"
+sizeString = "SIZE"
+
+computer = get_shell.host_computer
+
+padright = function (str, len)
+	if str.len > len then return str
+	newLen = len - str.len
+	return str + (" " * newLen)
+end function
+
+listDirectory = function(directoryPath)
+    folder = computer.File(directoryPath)
+
+    if folder == null then
+        print("ls: No such file or directory")
+        return
+    end if
+
+    if not folder.has_permission("r") then
+        print("ls: permission denied")
+        return
+    end if
+
+    subFiles = folder.get_folders + folder.get_files
+    folderOutput = ""
+    fileOutput = ""
+
+    for subFile in subFiles
+        nameFile = subFile.name
+        permission = subFile.permissions
+        owner = subFile.owner
+        size = subFile.size
+        group = subFile.group
+        
+        if owner == "root" then
+            owner = red + owner + cend
+        else
+            owner = purple + owner + cend
+        end if
+
+        if subFile.is_folder then
+            folderLine = cyan + padright(nameFile, 20) + cend + " " + orange + padright(permission, 10) + " " + cend + padright(owner, 10) + " " + "<color=red>" + padright(group, 8) + "</color>" + " " + size
+            folderOutput = folderOutput + folderLine + char(13)
+        else
+            fileLine = cyan + padright(nameFile, 20) + cend + " " + orange + padright(permission, 8) + cend + " " + padright(owner, 10) + " " + purple + padright(group, 10) + cend + " " + size
+            fileOutput = fileOutput + fileLine + char(13)
+        end if
+    end for
+
+    if folderOutput != "" then
+        print("<b><color=green>"+padright("FOLDERS:", 20) + padright(permString, 10) + " " + padright(ownerString, 10) + " " + padright(groupString, 10) + padright(sizeString, 2) + "</color></b>")
+        print("=============================================================")
+        print(folderOutput)
+        print("=============================================================")
+    end if
+
+    if fileOutput != "" then
+        print("<b><color=green>"+padright("FILES:", 20) + padright(permString, 10) + " " + padright(ownerString, 10) + " " + padright(groupString, 10) + padright(sizeString, 2) + "</color></b>")
+        print("=============================================================")
+        print(fileOutput)
+        print("=============================================================")
+    end if
+end function
+
+params = params()
+
+if params.len == 0 then
+    directoryPath = current_path
+else
+    directoryPath = params[0]
+end if
+
+listDirectory(directoryPath)
