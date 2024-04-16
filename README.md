@@ -1,2 +1,3 @@
 # Grey-Hack
-[WIP] while I learn it more
+scripts for the MMO game Grey Hack.
+-lazybones-
