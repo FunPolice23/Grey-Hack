@@ -1,0 +1,196 @@
+// Custom APT GET
+// This script is a repository manager script
+// Yes this scipt is not 100% done as there are certain things still needing work
+
+aptclient = include_lib("/lib/aptclient.so")
+if not aptclient then
+    aptclient = include_lib(current_path + "/aptclient.so")
+end if
+if not aptclient then
+    exit("<color=#FF6B6B>Error:</color> Missing aptclient.so library in the /lib path or the current folder")
+end if
+
+autoUpdate = function
+    output = aptclient.update
+end function
+
+PendingUpdating = function(folderPath)
+	pendingUpdate = []
+	targetFolder = get_shell.host_computer.File(folderPath)
+	if targetFolder != null then
+		files = targetFolder.get_files
+		for itemFile in files
+			output = aptclient.check_upgrade(itemFile.path)
+			if output == true then
+				pendingUpdate.push(itemFile.name)
+			end if
+		end for
+	end if
+	return pendingUpdate
+end function 
+
+showMenu = function()
+    print("==========================================================================")
+    print("<color=#80C7E7>Grey Hack Apt-Get Menu</color>")
+    print("<color=#80C7E7>1. <color=#77E088>Update package lists</color></color>")
+    print("<color=#80C7E7>2. <color=#77E088>Install package</color></color>")
+    print("<color=#80C7E7>3. <color=#77E088>Search package</color></color>")
+    print("<color=#80C7E7>4. <color=#77E088>Show repository info</color></color>")
+    print("<color=#80C7E7>5. <color=#77E088>Add repository</color></color>")
+    print("<color=#80C7E7>6. <color=#77E088>Remove repository</color></color>")
+    print("<color=#80C7E7>7. <color=#77E088>Upgrade packages</color></color>")
+    print("<color=#FF6B6B>8. <color=#FF6B6B>Exit</color></color>")
+end function
+
+//clear_screen //Comment out to stop clearing the screen
+
+while true
+    autoUpdate()
+    showMenu()
+    option = user_input("<color=#80C7E7>Select an option (1-8):</color> ")
+
+    if option == "1" then
+        print("<color=#80C7E7>Updating package lists...</color>")
+        output = aptclient.update
+        if output then
+            print(output)      
+        end if
+
+    else if option == "2" then
+        print("<color=#80C7E7>Reading package lists...</color>")
+        packageName = user_input("<color=#80C7E7>Enter the package name to install:</color> ")
+        print("<color=#80C7E7>Downloading " + packageName + "</color>")
+        output = aptclient.install(packageName)
+        if output == true then
+            exit("<color=#80C7E7>" + packageName + " installed</color>")
+        end if
+        print(output)
+
+    else if option == "3" then
+        packageName = user_input("<color=#80C7E7>Enter the package name to search:</color> ")
+        print(aptclient.search(packageName))
+    
+    else if option == "4" then
+        source = get_shell.host_computer.File("/etc/apt/sources.txt")
+        scontent = get_content(source)
+    
+        if not scontent then
+            print("<color=#FF6B6B>Error:</color> Failed to read sources.txt")
+        else
+            sourceListIndex = scontent.index_of("\sourceList\")
+    
+            if sourceListIndex >= 0 then
+                // Find the end of the sourceList content
+                sourceListEnd = scontent.index_of("}", sourceListIndex)
+                
+                if sourceListEnd >= 0 then
+                    // Extract the sourceList content
+                    sourceListContent = scontent.substring(sourceListIndex, sourceListEnd + 1)
+    
+                    // Split by comma and process each key-value pair
+                    sourceListParts = sourceListContent.remove("{").remove("}").split(",")
+    
+                    for part in sourceListParts
+                        // Split each part by colon to get IP and port
+                        keyValue = part.split(":")
+                        if keyValue.len == 2 then
+                            ip = keyValue[0].trim()
+                            port = keyValue[1].trim()
+                            print("IP: " + ip + ", Port: " + port)
+                        end if
+                    end for
+                else
+                    print("<color=#FF6B6B>Error:</color> '}' not found in sources.txt after 'sourceList'")
+                end if
+            else
+                print("<color=#FF6B6B>Error:</color> 'sourceList' not found in sources.txt")
+            end if
+        end if    
+
+    else if option == "5" then
+        repoName = user_input("<color=#80C7E7>Enter the repository URL to add:</color> ")
+        port = user_input("<color=#80C7E7>Enter the port (default is 1542):</color> ")
+        if not port then
+            port = 1542
+        end if
+        output = aptclient.add_repo(repoName)
+        if output then
+            exit(output)
+        end if
+        print("<color=#80C7E7>Repository " + repoName + " added successfully.</color>\n<color=#80C7E7>Launch apt with the update option to apply the changes</color>")
+
+    else if option == "6" then
+        repoName = user_input("<color=#80C7E7>Enter the repository URL to remove:</color> ")
+        output = aptclient.del_repo(repoName)
+        if output then
+            exit(output)
+        end if
+        print("<color=#80C7E7>Repository " + repoName + " removed successfully.</color>\n<color=#80C7E7>Launch apt with the update option to apply the changes</color>")
+
+    else if option == "7" then
+        print("<color=#80C7E7>Reading package lists...</color>")
+        // upgrade all packages
+        // This checks both /lib and /root for upgrades but can just remove  line 134 then 167-187 to keep just /lib
+        pendingPackages_1 = PendingUpdating("/lib")
+        pendingPackages_2 = PendingUpdating("/root")
+
+        if pendingPackages_1.len == 0 and pendingPackages_2.len == 0 and pendingPackages_3.len == 0 then
+            print("<color=#80C7E7>No updates needed</color>")
+            options = user_input("press 1 for main menu or 2 for exiting apt")
+            if options == "2" then
+                exit
+            else if options == "1" then
+                showMenu()
+            end if
+        else
+            print("The following packages will be updated:")
+            pkgs = ""
+            for itemPackage in pendingPackages_1
+                pkgs = pkgs + " " + itemPackage
+            end for
+            print(pkgs.path + " " + pkgs.version)
+            upgradeOption = user_input("\n<color=#80C7E7>Do you want to continue with the upgrade?(y/n):</color> ")
+            if upgradeOption == "y" or upgradeOption == "yes" then
+                counter = 0
+                for itemPackage in pendingPackages
+                    output = aptclient.install(itemPackage)
+                    if output == true then
+                        counter = counter + 1
+                    else if output then
+                        print(output)
+                    end if
+                end for
+                print("<color=#80C7E7>" + counter + " packages updated</color>")
+            else
+                print("<color=#FF6B6B>Aborted</color>")
+            end if
+
+            print("The following packages will be updated:")
+            pkgs = ""
+            for itemPackage in pendingPackages_2
+                pkgs = pkgs + " " + itemPackage
+            end for
+            print(pkgs.path + " " + pkgs.version)
+            upgradeOption = user_input("\n<color=#80C7E7>Do you want to continue with the upgrade?(y/n):</color> ")
+            if upgradeOption == "y" or upgradeOption == "yes" then
+                counter = 0
+                for itemPackage in pendingPackages
+                    output = aptclient.install(itemPackage)
+                    if output == true then
+                        counter = counter + 1
+                    else if output then
+                        print(output)
+                    end if
+                end for
+                print("<color=#80C7E7>" + counter + " packages updated</color>")
+            else
+                print("<color=#FF6B6B>Aborted</color>")
+            end if
+
+        end if
+    else if option == "8" then
+        exit("<color=#80C7E7>Exiting Apt-Get Menu...</color>")
+    else
+        print("<color=#FF6B6B>Invalid option. Please select a valid option.</color>")
+    end if
+end while
