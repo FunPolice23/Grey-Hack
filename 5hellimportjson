@@ -1,0 +1,76 @@
+[
+    {
+        "type": "folder",
+        "path": "/root/src"
+    },
+    {
+        "type": "file",
+        "path": "/root/src/5hell.src",
+        "local": "C:\\Users\\ADD_USER\\Desktop\\GreyHackscripts\\5hell\\5hell.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/src/5phinx.src",
+        "local": "C:\\Users\\ADD_USER\\Desktop\\GreyHackscripts\\5hell\\5phinx_Master.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/src/battleship.src",
+        "local": "C:\\Users\\ADD_USER\\Desktop\\GreyHackscripts\\5hell\\battleship.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/src/blackjack.src",
+        "local": "C:\\Users\\ADD_USER\\Desktop\\GreyHackscripts\\5hell\\blackjack3.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/src/clipcommander.src",
+        "local": "C:\\Users\\ADD_USER\\Desktop\\GreyHackscripts\\5hell\\clipcommander.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/src/cobble.src",
+        "local": "C:\\Users\\ADD_USER\\Desktop\\GreyHackscripts\\5hell\\cobble.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/src/dig.src",
+        "local": "C:\\Users\\ADD_USER\\Desktop\\GreyHackscripts\\5hell\\dig.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/src/dtools.src",
+        "local": "C:\\Users\\ADD_USER\\Desktop\\GreyHackscripts\\5hell\\dtools.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/src/felix.src",
+        "local": "C:\\Users\\ADD_USER\\Desktop\\GreyHackscripts\\5hell\\felix.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/src/herme5.src",
+        "local": "C:\\Users\\ADD_USER\\Desktop\\GreyHackscripts\\5hell\\herme5.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/src/kore.src",
+        "local": "C:\\Users\\ADD_USER\\Desktop\\GreyHackscripts\\5hell\\kore.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/src/kraken.src",
+        "local": "C:\\Users\\ADD_USER\\Desktop\\GreyHackscripts\\5hell\\kraken.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/src/pwgen.src",
+        "local": "C:\\Users\\ADD_USER\\Desktop\\GreyHackscripts\\5hell\\pwgen.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/drugwars.src",
+        "local": "C:\\Users\\ADD_USER\\Desktop\\GreyHackscripts\\5hell\\5hell.src"
+    }
+]
