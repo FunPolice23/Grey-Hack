@@ -2,134 +2,248 @@ comp = get_shell().host_computer
 root = comp.File("/")
 player_check = active_user
 
+line = "======================================"
+
 // Function to print formatted messages with different colors
-printMsg = function(msg, color="green")
+printMsg = function(msg, color="#009900")
+
     print("<color=" + color + "><b>" + msg + "</b></color>")
+    
 end function
 
 // Function to secure home directory
 secureHome = function()
-    printMsg("Running Security on Home Computer.")
-    print("=============================================================\n")
-    
+
+    clear_screen // Comment out clear_screen if you do not wish to have it
+    printMsg("Starting Security on the Home Computer.")
+    printMsg(line, "white")
+
+    //print("\n")
     // Remove all permissions before adding any back
     for folderPerm in root.get_folders
+
         folderPerm.chmod("u-rwx", true)
         folderPerm.chmod("g-rwx", true)
         folderPerm.chmod("o-rwx", true)
 
         folderPerm.set_owner("root", true)
         folderPerm.set_group("root", true)
+
     end for
     
     // Secure /usr/bin directory
     usrFolder = comp.File("/usr/bin")
+
     if not is_folder(usrFolder) then
+
         printMsg("/usr/bin folder is missing or empty.", "red")
         return
+
     else
+
+        wait(2)
+        printMsg("Securing /usr/bin directory")
+
          // Iterate through /usr/bin files
         usrFiles = usrFolder.get_files()
+
         for usrFile in usrFiles
+
+            // Check if the name equals Terminal.exe or Mail.exe or Chat.exe and give them permissions user|group read|execute
             if usrFile.name == "Terminal.exe" then
-                printMsg("Let's give Terminal.exe permissions user|group read|execute now")
+                printMsg("Let's give Terminal.exe permissions user|group read|execute now", "#33ccff")
                 usrFile.chmod("u+rx", false)
                 usrFile.chmod("g+rx", false)
+
                 // Print the new permission of Terminal.exe
                 printMsg(usrFile.path + " Has " + usrFile.permissions, "orange")
-            end if
-            if usrFile.name == "Chat.exe" then
-                printMsg("Let's give Terminal.exe permissions user|group read|execute now")
+
+            else if usrFile.name == "Mail.exe" then
+
+                print("\n")
+                printMsg("Let's give Mail.exe permissions user|group read|execute now", "#33ccff")
                 usrFile.chmod("u+rx", false)
                 usrFile.chmod("g+rx", false)
+
                 // Print the new permission of Terminal.exe
                 printMsg(usrFile.path + " Has " + usrFile.permissions, "orange")
+
+            else if usrFile.name == "Chat.exe" then
+
+                print("\n")
+                printMsg("Let's give Chat.exe permissions user|group read|execute now", "#33ccff")
+                usrFile.chmod("u+rx", false)
+                usrFile.chmod("g+rx", false)
+
+                // Print the new permission of Terminal.exe
+                printMsg(usrFile.path + " Has " + usrFile.permissions, "orange")
+                printMsg(line, "white")
+
             end if
+
         end for
+
     end if
-    wait(0.2)
+
     // Secure /bin directory
     binFolder = comp.File("/bin")
+
     if not is_folder(binFolder) then
+
         printMsg("/bin folder is missing or empty.", "red")
         return
+
     else
+
+        wait(2)
+        printMsg("Securing /bin directory")
          // Iterate through /usr/bin files
         binFiles = binFolder.get_files()
+
         for files in binFiles
+
+            // Check if the name sudo is in /bin, if so then gives it user|group read|execute permissions
             if files.name == "sudo" then
+
                 print("\n")
-                printMsg("let's make sure you can gain root access with sudo")
+                printMsg("let's make sure you can gain root access with sudo", "#33ccff")
                 files.chmod("u+rx", false)
                 files.chmod("g+rx", false)
                 // Print the new permission of Terminal.exe
                 printMsg(files.path + " Has " + files.permissions, "orange")
+                print("\n" + line, "white")
+
             end if
+
         end for
+
     end if
-    wait(0.2)
+
     // Secure /etc directory
     etcFolder = comp.File("/etc")
+
     if not is_folder(etcFolder) then
+
         printMsg("/etc folder is missing or empty.", "red")
         return
+
     else
+
+        wait(2)
+        printMsg("Securing /etc directory")
+        etcPerms = etcFolder.permissions
+
         // Iterate through /etc files
         for etcF in etcFolder.get_files()
+
+            // Check if passwd file is in /etc and if so we delete it since permissions already set no need to do it here.
             if etcF.name == "passwd" then
+
                 print("\n")
-                printMsg("Deleing the passwd file now", "orange")
+                printMsg("Deleing the passwd file now", "red")
                 etcF.delete
+
             end if
+
         end for
+
+        printMsg("passwd file was not found so just chaning permissions", "#33ccff")
+        printMsg("New permission -> " + etcPerms, "orange")
+
     end if
-    wait(0.2)
+
     // Secure /home directory
     homeFolder = comp.File("/home")
+
     if not is_folder(homeFolder) then
+
         printMsg("Home folder is missing or empty.", "red")
         return
+
     else
+
+        wait(2)
          // Iterate through user folders
         for userFolder in homeFolder.get_folders()
 
-            rootPerms = root.permissions       
+            // Set the name for a user and permissions
             user = userFolder.name
-            print("\n")
-            
+            rootPerms = root.permissions
 
+            // Check for guest folder and if true we delete it
             if userFolder.name == "guest" then
-                printMsg("Deleting guest folder")
-                userFolder.delete
-            else
-                printMsg("Securing /home/" + user + " directory", "green")
-                // Set permissions and ownership
+
+                printMsg("Removing the guest folder from /home", "orange")
+                userFolder.delete()
+
+            end if
+
+            print("\n")            
+            printMsg("Securing /home/" + user + " directory", "#009900")
+
+            if userFolder then
+
+                // Set permissions and ownership of the /home user
                 userFolder.chmod("u+rx", true)
                 userFolder.chmod("g+rx", true)
                 userFolder.set_owner("root")
                 userFolder.set_group("root")
                 newPerms = userFolder.permissions
                 printMsg("Changed permissions for " + userFolder.path + " " + newPerms, "orange")
+                print("\n")
+
             end if
 
             // Check and delete specific files
             userConfigs = comp.File("/home/" + user + "/Config")
+
             if is_folder(userConfigs) then
-                printMsg("Checking /Config folder for vulnerable files", "blue")
+
+                if user == "root" then
+                    user = "<color=red>" + user + "</color>"
+                else if user == "guest" then
+                    user = "<color=yellow>" + user + "</color>"
+                else
+                    user = "<color=purple>" + user + "</color>"
+                end if
+
+                printMsg("Checking " + user+ "/Config folder for vulnerable files")
                 configFiles = userConfigs.get_files()
+
                 for configFile in configFiles           
-                    if configFile.name == "Map.conf" or configFile.name == "Bank.txt" or configFile.name == "Mail.txt" then
+
+                    if configFile.name == "Map.conf" then
                         printMsg("Deleted " + configFile.name + " for: " + user, "orange")
                         configFile.delete()
-                    else
+                    end if
+                    if configFile.name == "Mail.txt" then
+                        printMsg("Deleted " + configFile.name + " for: " + user, "orange")
+                        configFile.delete()
+                    end if
+                    if configFile.name == "Bank.txt" then
+                        printMsg("Deleted " + configFile.name + " for: " + user, "orange")
+                        configFile.delete()
+                    end if
+                    if not configFile.name == "Map.conf" or configFile.name == "Mail.txt" or configFile.name == "Bank.txt" then
                         printMsg("Looks like no files are needed to be cleaned", orange)
                     end if
+
                 end for
+
+                printMsg("Looks like there are no Map.conf or Bank.txt or Mail.txt files", "#33ccff")
+                
             else
+
                 printMsg("No Config folder found for user: " + user, "yellow")
+
             end if
+
         end for
     end if
+    print("\n")
+    wait(6)
+    clear_screen
+    printMsg("System has been scanned and locked down, please stay logged into root while opening a second Terminal.exe as user to check if you are able to run sudo. Have fun.")
 end function
 
 // Secure Server
