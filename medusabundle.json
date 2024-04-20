@@ -1,0 +1,253 @@
+[
+    {
+        "type": "folder",
+        "path": "/root"
+    },
+    {
+        "type": "folder",
+        "path": "/root/Api"
+    },
+    {
+        "type": "folder",
+        "path": "/root/AutoSpread"
+    },
+    {
+        "type": "folder",
+        "path": "/root/Client"
+    },
+    {
+        "type": "folder",
+        "path": "/root/Command"
+    },
+    {
+        "type": "folder",
+        "path": "/root/Commands"
+    },
+    {
+        "type": "folder",
+        "path": "/root/Decipher"
+    },
+    {
+        "type": "folder",
+        "path": "/root/Extentions"
+    },
+    {
+        "type": "folder",
+        "path": "/root/PseudoShell"
+    },
+    {
+        "type": "file",
+        "path": "/root/helpers.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\helpers.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/medusa.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\medusa.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Api/OpenRshell.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Api\\OpenRshell.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/AutoSpread/AutoSpread.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\AutoSpread\\AutoSpread.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Client/Client.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Client\\Client.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Client/ClientManager.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Client\\ClientManager.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Command/Command.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Command\\Command.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Command/CommandManager.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Command\\CommandManager.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Command/Parameter.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Command\\Parameter.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Commands/add.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Commands\\add.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Commands/clear.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Commands\\clear.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Commands/clients.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Commands\\clients.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Commands/commands.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Commands\\commands.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Commands/delclient.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Commands\\delclient.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Commands/dellogs.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Commands\\dellogs.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Commands/exit.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Commands\\exit.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Commands/grab.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Commands\\grab.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Commands/kill.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Commands\\kill.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Commands/ps.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Commands\\ps.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Commands/pshell.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Commands\\pshell.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Commands/rainbow.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Commands\\rainbow.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Commands/run.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Commands\\run.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Commands/shell.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Commands\\shell.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Commands/spread.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Commands\\spread.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Dictionary.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Dictionary.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list1.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Lists\\list1.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list2.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Lists\\list2.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list3.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Lists\\list3.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list4.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Lists\\list4.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list5.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\lists\\list5.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list6.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Lists\\list6.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list7.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Lists\\list7.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list8.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Lists\\list8.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list9.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Lists\\list9.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list10.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Lists\\list10.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list11.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Lists\\list11.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list12.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Lists\\list12.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list13.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Lists\\list13.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list14.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Lists\\list14.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list15.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Lists\\list15.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Decipher/Lists/list16.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Decipher\\Lists\\list16.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/Extensions/string.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\Extensions\\string.src"
+    },
+    {
+        "type": "file",
+        "path": "/root/PseudoShell/PseudoShell.src",
+        "local": "C:\\Users\\ADDUSER\\Desktop\\GreyHackscripts\\Medusa\\PseudoShell\\PseudoShell.src"
+    }
+]
