@@ -1,110 +1,83 @@
+// As you will notice I have added different colors, you can change it to something you like or remove it all together.
+// I still haven't figured out how I would like it to look so yeah..
+// 
+// Warning about secureRouter - If you use secureRouter it will delete all files in /bin except for cd due to 3rd party terminal script. so if you don't wish to delete them all
+// you can just modify line 320 and below or remove it..up to you or whatever files you want to keep.
+
+// Function to print formatted messages with different colors
+
 comp = get_shell().host_computer
 root = comp.File("/")
 player_check = active_user
-
 line = "======================================"
 
-// Function to print formatted messages with different colors
 printMsg = function(msg, color="#009900")
-
     print("<color=" + color + "><b>" + msg + "</b></color>")
-    
 end function
 
 // Function to secure home directory
 secureHome = function()
-
     clear_screen // Comment out clear_screen if you do not wish to have it
     printMsg("Starting Security on the Home Computer.")
     printMsg(line, "white")
-
     //print("\n")
     // Remove all permissions before adding any back
     for folderPerm in root.get_folders
-
         folderPerm.chmod("u-rwx", true)
         folderPerm.chmod("g-rwx", true)
         folderPerm.chmod("o-rwx", true)
-
         folderPerm.set_owner("root", true)
         folderPerm.set_group("root", true)
-
     end for
-    
     // Secure /usr/bin directory
     usrFolder = comp.File("/usr/bin")
-
     if not is_folder(usrFolder) then
-
         printMsg("/usr/bin folder is missing or empty.", "red")
         return
-
     else
-
-        wait(2)
+        wait(1.2)
         printMsg("Securing /usr/bin directory")
-
-         // Iterate through /usr/bin files
+        // Iterate through /usr/bin files
         usrFiles = usrFolder.get_files()
-
         for usrFile in usrFiles
-
             // Check if the name equals Terminal.exe or Mail.exe or Chat.exe and give them permissions user|group read|execute
             if usrFile.name == "Terminal.exe" then
                 printMsg("Let's give Terminal.exe permissions user|group read|execute now", "#33ccff")
                 usrFile.chmod("u+rx", false)
                 usrFile.chmod("g+rx", false)
-
                 // Print the new permission of Terminal.exe
                 printMsg(usrFile.path + " Has " + usrFile.permissions, "orange")
-
             else if usrFile.name == "Mail.exe" then
-
                 print("\n")
                 printMsg("Let's give Mail.exe permissions user|group read|execute now", "#33ccff")
                 usrFile.chmod("u+rx", false)
                 usrFile.chmod("g+rx", false)
-
                 // Print the new permission of Terminal.exe
                 printMsg(usrFile.path + " Has " + usrFile.permissions, "orange")
-
             else if usrFile.name == "Chat.exe" then
-
                 print("\n")
                 printMsg("Let's give Chat.exe permissions user|group read|execute now", "#33ccff")
                 usrFile.chmod("u+rx", false)
                 usrFile.chmod("g+rx", false)
-
                 // Print the new permission of Terminal.exe
                 printMsg(usrFile.path + " Has " + usrFile.permissions, "orange")
                 printMsg(line, "white")
-
             end if
-
         end for
-
     end if
-
     // Secure /bin directory
     binFolder = comp.File("/bin")
-
     if not is_folder(binFolder) then
-
         printMsg("/bin folder is missing or empty.", "red")
         return
-
     else
-
-        wait(2)
+        wait(1.2)
         printMsg("Securing /bin directory")
          // Iterate through /usr/bin files
         binFiles = binFolder.get_files()
-
         for files in binFiles
-
             // Check if the name sudo is in /bin, if so then gives it user|group read|execute permissions
             if files.name == "sudo" then
-
                 print("\n")
                 printMsg("let's make sure you can gain root access with sudo", "#33ccff")
                 files.chmod("u+rx", false)
@@ -112,77 +85,51 @@ secureHome = function()
                 // Print the new permission of Terminal.exe
                 printMsg(files.path + " Has " + files.permissions, "orange")
                 print("\n" + line, "white")
-
             end if
-
         end for
-
     end if
-
     // Secure /etc directory
     etcFolder = comp.File("/etc")
-
     if not is_folder(etcFolder) then
-
         printMsg("/etc folder is missing or empty.", "red")
         return
-
     else
-
-        wait(2)
+        wait(1.2)
         printMsg("Securing /etc directory")
         etcPerms = etcFolder.permissions
-
         // Iterate through /etc files
         for etcF in etcFolder.get_files()
-
             // Check if passwd file is in /etc and if so we delete it since permissions already set no need to do it here.
             if etcF.name == "passwd" then
-
                 print("\n")
                 printMsg("Deleing the passwd file now", "red")
                 etcF.delete
-
             end if
-
         end for
-
         printMsg("passwd file was not found so just chaning permissions", "#33ccff")
         printMsg("New permission -> " + etcPerms, "orange")
-
     end if
-
     // Secure /home directory
     homeFolder = comp.File("/home")
-
     if not is_folder(homeFolder) then
-
         printMsg("Home folder is missing or empty.", "red")
         return
-
     else
-
-        wait(2)
+        wait(1.2)
          // Iterate through user folders
         for userFolder in homeFolder.get_folders()
-
             // Set the name for a user and permissions
             user = userFolder.name
             rootPerms = root.permissions
-
             // Check for guest folder and if true we delete it
             if userFolder.name == "guest" then
 
                 printMsg("Removing the guest folder from /home", "orange")
                 userFolder.delete()
-
             end if
-
             print("\n")            
             printMsg("Securing /home/" + user + " directory", "#009900")
-
             if userFolder then
-
                 // Set permissions and ownership of the /home user
                 userFolder.chmod("u+rx", true)
                 userFolder.chmod("g+rx", true)
@@ -191,14 +138,10 @@ secureHome = function()
                 newPerms = userFolder.permissions
                 printMsg("Changed permissions for " + userFolder.path + " " + newPerms, "orange")
                 print("\n")
-
             end if
-
             // Check and delete specific files
             userConfigs = comp.File("/home/" + user + "/Config")
-
             if is_folder(userConfigs) then
-
                 if user == "root" then
                     user = "<color=red>" + user + "</color>"
                 else if user == "guest" then
@@ -206,12 +149,9 @@ secureHome = function()
                 else
                     user = "<color=purple>" + user + "</color>"
                 end if
-
                 printMsg("Checking " + user+ "/Config folder for vulnerable files")
                 configFiles = userConfigs.get_files()
-
                 for configFile in configFiles           
-
                     if configFile.name == "Map.conf" then
                         printMsg("Deleted " + configFile.name + " for: " + user, "orange")
                         configFile.delete()
@@ -227,17 +167,11 @@ secureHome = function()
                     if not configFile.name == "Map.conf" or configFile.name == "Mail.txt" or configFile.name == "Bank.txt" then
                         printMsg("Looks like no files are needed to be cleaned", orange)
                     end if
-
                 end for
-
                 printMsg("Looks like there are no Map.conf or Bank.txt or Mail.txt files", "#33ccff")
-                
             else
-
                 printMsg("No Config folder found for user: " + user, "yellow")
-
             end if
-
         end for
     end if
     print("\n")
@@ -248,8 +182,11 @@ end function
 
 // Secure Server
 secureServer = function()
+    clear_screen // Remove this if you don't want the screen cleared.
     printMsg("Running Security on Server")
     print("=============================================================\n")
+    rootPerms = root.permissions
+    wait(1.2)
 
     // Remove all permissions before adding any back
     for folderPerm in root.get_folders
@@ -261,12 +198,15 @@ secureServer = function()
         folderPerm.set_group("root", true)
     end for
     
+    printMsg("Removing all permissions now " + rootPerms, "#33ccff")
+    print("\n")
     // Secure /etc directory
     etcFolder = comp.File("/etc")
     if not is_folder(etcFolder) then
         printMsg("/etc folder is missing or empty.", "red")
         return
     else
+        printMsg("Securing /etc directory")
         // Iterate through /etc files
         for etcF in etcFolder.get_files()
             if etcF.name == "passwd" then
@@ -275,34 +215,36 @@ secureServer = function()
                 etcF.delete
             end if
         end for
+
+        printMsg("Looks like the file passwd was not found.", "#33ccff")
     end if
-    
+    wait(1.2)
     // Check /home folder for guest then delete it
-    guestFolder = comp.File("/home/guest")
-    if not is_folder(guestFolder) then
-        printMsg("/home/guest is missing or empty.", "red")
+    homeFolder = comp.File("/home")
+    printMsg("Securing /home directory")
+    if not is_folder(homeFolder) then
+        print("\n")
+        printMsg("/home is missing or empty.", "red")
         return
     else
         printMsg("Removing guest folder now", "orange")
-        guestFolder.delete()
+        for home in homeFolder.get_folders + homeFolder.get_files
+            home.delete()
+        end for
     end if
 end function
 
 // secure Router
 secureRouter = function()
-
     printMsg("Running Security on Router")
-    
     // Remove all permissions before adding any back
     for folderPerm in root.get_folders
         folderPerm.chmod("u-rwx", true)
         folderPerm.chmod("g-rwx", true)
         folderPerm.chmod("o-rwx", true)
-
         folderPerm.set_owner("root", true)
         folderPerm.set_group("root", true)
     end for
-
     // Secure /bin directory
     binFolder = comp.File("/bin")
     if not is_folder(binFolder) then
@@ -321,8 +263,7 @@ secureRouter = function()
             end if
         end for
     end if
-
-    // Remove rkit folder from /root or /home/guest
+    // Remove rkit folder from /root or /home/guest, Change to whatever payload/kit/rkit/blanky blank namey name...you know..
     rkitFolder = comp.File("/root/rkit")
     if not is_folder(rkitFolder) then
         rkitFolder = comp.File("/home/guest/rkit")
@@ -333,11 +274,21 @@ secureRouter = function()
             printMsg("Deleting rkit folder")
             rkitFolder.delete()
         end if
-    end if
-    
+    end if 
 end function
 
+                                     
+           
+
+
 if player_check == "root" then
+    printMsg("_    ____ ___  _   _                 ")
+    printMsg("|    |__|   /   \_/                  ")
+    printMsg("|___ |  |  /__   |                   ")
+    printMsg("____ ____ ____ _  _ ____ _ ___ _   _ ")
+    printMsg("[__  |___ |    |  | |__/ |  |   \_/  ")
+    printMsg("___] |___ |___ |__| |  \ |  |    |   ")
+    printMsg(line + "\n")
     printMsg("(h|s|r  - home, server, router)")
     ask = user_input("|>  ")
     if ask == "Home" or ask == "h" or ask == "home" then
