@@ -1,22 +1,23 @@
 // -== AUTOMATIC COMPLETION OF TASKS ==-
 // Original Auto Mission Credits to FortenZz and Gadzhi
+
 // Small Edit by lazybones
+// Removed the deletion of emails once the script finished and made it auto login to email instead of entering
 
 // countReadingMails - number of emails to be read
 // delLogs - if 1 (true) deleting logs will be enabled else if 0 (false) disabled
 
+// EDIT line 215 for md5 hash check and string
+// EDIT line 220 for password injection
 // EDIT line 448-449 for email and password 
 
 
 // Can setup to have it use a simple pin for access or just remove it, up to you.
-pin = "REPLACE_ME"
-ask = user_input("ADD_QUESTION")
+pin = "BLANK" // Choose a pin number or pass phrase or whatever you want.
+ask = user_input("BLANK ") // Whatever you choose it to say
 if ask == pin then
-
     user = active_user
-
     library_names = ["init.so, kernel_module.so, net.so, crypto.so, metaxploit.so, libhttp.so, libsmtp.so, libsql.so, libftp.so, libssh.so, libchat.so, kernel_router.so, librshell.so, libcam.so, librepository.so, aptclient.so, blockchain.so"]
-
     if len(params) == 1 and (params[0] == "-h" or params[0] == "--help") then exit("Usage: \n" + program_path.split("/")[-1] + " [countReadingMails: int (default = 100)] [delLogs: bool (0/1) (default = 1)]\nExample: taskexec 7 0")
     globals.countReadingMails = 100
     if len(params) >= 1 then globals.countReadingMails = params[0].to_int()
@@ -25,13 +26,10 @@ if ask == pin then
 
     local = {}
     local.computer = get_shell.host_computer
-
     program_results = []
-
     if not local.computer.is_network_active then
         exit("Network is not active.")
     end if
-
 
     SetAsGuest = function(fileObject)
         FinFileSubFolder=function(folders)
@@ -149,7 +147,6 @@ if ask == pin then
 
     getFile = function(fileObject, path)
         ways = path.split("/")[1:]
-        
         i = 0       
         while fileObject.path != path
             folders = fileObject.get_folders
@@ -162,7 +159,6 @@ if ask == pin then
             end for
             i = i + 1
         end while
-
         if fileObject.path == path then return fileObject
     end function
 
@@ -185,9 +181,7 @@ if ask == pin then
     getPasswordAndClearLogs = function(user, obj)
         if not obj then return null
         hash_password = null
-
         passwd = getFile(toFile(obj), "/etc/passwd")
-
         if not passwd or not passwd.has_permission("r") then
             print("<color=red>No access to <b>/etc/passwd\n")
             return false
@@ -204,24 +198,21 @@ if ask == pin then
                 end for
             end if
             if not hash_password then return false
-            
             if globals.delLogs then
                 if typeof(obj) == "computer" then corruptLog(obj)
                 if typeof(obj) == "shell" then corruptLog(obj.host_computer)
             end if
-            if hash_password == "ced421b174bd05a560a4f098565d4c7b" then return "madeinRussia"
+            if hash_password == "8b7fa411435b94a0b186b4f1248ffefe" then return "lazybones"
             password = cr.decipher(hash_password)
             return password
         end if
     end function
 
-    Hack = function(IP, PORT, injectArg = "madeinRussia")
+    Hack = function(IP, PORT, injectArg = "lazybones") // Change the string to whatever you want it to display as a password injection
         net_session = mx.net_use(IP, PORT)
         if net_session then print("Connected!")
         if not net_session then return false
-        
         metaLib = net_session.dump_lib
-        
         results = []
         memory = mx.scan(metaLib)
         for mem in memory
@@ -229,7 +220,6 @@ if ask == pin then
             for add in address[1:]
                 value = add[add.indexOf("<b>")+3:add.indexOf("</b>")]
                 value = value.replace("\n", "")
-                
                 result = metaLib.overflow(mem, value, injectArg)
                 if not result then
                     result = metaLib.overflow(mem, value)
@@ -266,7 +256,6 @@ if ask == pin then
         lan = attack.lan
         user = attack.user
         mail_number = attack.mail_number
-
         sorted_objs = sortHacked(objs)
         for obj in sorted_objs
             if not obj then continue
@@ -278,7 +267,6 @@ if ask == pin then
                 add = {"mail_number": mail_number, "ip": ip, "lan": lan, "user": user, "pass": output}
                 if globals.program_results.indexOf(add) != null then return true
                 globals.program_results.push(add)
-
                 savefile = globals.local.computer.File(current_path + "/task.log")
                 if not savefile then
                     globals.local.computer.touch(current_path, "task.log")
@@ -300,31 +288,26 @@ if ask == pin then
         lan = attack.lan
         mail_number = attack.mail_number
         router = get_router(ip)
-
         // Check kernel_router.so (port 0)
         objs = Hack(ip, 0)
         if objs and hackObjs(objs, attack) then
             return true
         end if
-
         // Check libhttp.so (port 80)
         objs = Hack(ip, 80)
         if objs and hackObjs(objs, attack) then
             return true
         end if 
-
         // Check libssh.so (port 22)
         objs = Hack(ip, 22)
         if objs and hackObjs(objs, attack) then
             return true
         end if
-
         // Check libsql.so (port 3306)
         objs = Hack(ip, 3306)
         if objs and hackObjs(objs, attack) then
             return true
         end if
-
         print("Bounce attack:\n")
         objs = Hack(router.public_ip, 0, lan)
         if not objs then return false
@@ -383,7 +366,7 @@ if ask == pin then
         print("------------------------")
 
         attacks = []
-        choice = user_input("\nIndex(es) sep "" "" / ""all"": ")
+        choice = user_input("\Enter [id id] or type all"": ")
         if choice == "all" or choice == "" then
             attacks = targets
         else
@@ -415,9 +398,7 @@ if ask == pin then
             print("<b>*</b> Password:<b><color=red> "+i.pass)
             count = count + 1
         end for
-        print("------------------------")
-        print("<color=red>Restart your <color=#fff>Mail.exe</color>")
-        print("Uncompleted tasks have been removed.")
+        print("\n <color=green>Auto Cred Mission Script has ended, make sure to delete task.log file once finished with it</color>.")
     end function
 
     // load metaxploit
@@ -447,8 +428,8 @@ if ask == pin then
         return password
     end function
 
-    login = "REPLACE_EMAIL"
-    pass = "REPLACE_PASSWORD"
+    login = "EMAIL"
+    pass = "PASSWORD"
 
     if login == null or pass == null then
         print("Missing credentials. Exiting.")
