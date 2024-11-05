@@ -1,0 +1,111 @@
+// Custom LS Script
+// Usage: ls [directory]
+
+cyan = "<color=#0EC6FE>"
+orange = "<color=#FF8D08>"
+purple = "<color=#AC0BC3>"
+gold = "<color=#E0E10C>"
+green = "<color=#2CC018>"
+red = "<color=#FF0000>"
+yellow = "<color=#f1f306>"
+cend = "</color>"
+
+permString = "PERMISSON"
+ownerString = "OWNER"
+groupString = "GROUP"
+sizeString = "SIZE"
+
+computer = get_shell.host_computer
+
+// Function for right padding a string to a specified width
+padright = function(text, width)
+    while text.len < width
+        text = text + " "
+    end while
+    return text
+end function
+
+format_byte = function(byte)
+    if byte < 1024 then
+        output = byte + " B"
+    else if byte < 1024 * 1024 then
+        output = (byte / 1024) + " KB"
+    else if byte < 1024 * 1024 * 1024 then
+        output = (byte / 1024 / 1024) + " MB"
+    else if byte < 1024 * 1024 * 1024 * 1024 then
+        output = (byte / 1024 / 1024 / 1024) + " GB"
+    else
+        output = (byte / 1024 / 1024 / 1024 / 1024) + " TB"
+    end if
+
+    return cyan + output + cend
+end function
+
+listDirectory = function(directoryPath)
+    folder = computer.File(directoryPath)
+
+    if folder == null then
+        print("ls: No such file or directory")
+        return
+    end if
+
+    if not folder.has_permission("r") then
+        print("ls: permission denied")
+        return
+    end if
+
+    subFiles = folder.get_folders + folder.get_files
+    folderOutput = ""
+    fileOutput = ""
+
+    for subFile in subFiles
+        nameFile = subFile.name
+        permission = padright(subFile.permissions, 12)
+        size = subFile.size
+
+        if subFile.owner == "root" or subFile.group == "root" then
+            owner = red + subFile.owner + cend
+            group = red + subFile.group + cend
+        else if subFile.owner == "guest" or subFile.group == "guest" then
+            owner = yellow + subFile.owner + cend
+            group = yellow + subFile.group + cend
+        else
+            owner = purple + subFile.owner + cend
+            group = purple + subFile.group + cend
+        end if
+            
+        
+        if subFile.is_folder then
+            folderLine = cyan + padright(nameFile, 20) + cend + " " + orange + permission + cend + padright(owner, 30) + padright(group, 31) + " " + format_byte(size.to_int)
+            folderOutput = folderOutput + folderLine + char(13)
+        else
+            fileLine = cyan + padright(nameFile, 20) + cend + " " + orange + permission + cend + padright(owner, 30) + padright(group, 31)  + " " + format_byte(size.to_int)
+            fileOutput = fileOutput + fileLine + char(13)
+        end if
+
+    end for
+
+    if folderOutput != "" then
+        print("<b><color=green>"+padright("FOLDERS:", 18) + padright(permString, 10) + " " + padright(ownerString, 4) + " " + padright(groupString, 9) + padright(sizeString, 2) + "</color></b>")
+        print("=============================================================")
+        print(folderOutput)
+        print("=============================================================")
+    end if
+
+    if fileOutput != "" then
+        print("<b><color=green>"+padright("FILES:", 18) + padright(permString, 10) + " " + padright(ownerString, 4) + " " + padright(groupString, 9) + padright(sizeString, 2) + "</color></b>")
+        print("=============================================================")
+        print(fileOutput)
+        print("=============================================================")
+    end if
+end function
+
+params = params()
+
+if params.len == 0 then
+    directoryPath = current_path
+else
+    directoryPath = params[0]
+end if
+
+listDirectory(directoryPath)
