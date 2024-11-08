@@ -135,7 +135,7 @@ hack_wifi = function(chosen_network, crypto)
 	cwd = current_path
 
 	// Rough estimate, should handle anything over 50%
-	acks = 2000 + ((1 - (chosen_network.power / 100)) * 6250)
+	acks = 2800 + ((1 - (chosen_network.power / 100)) * 6250) // 2800 seems to work just fine
 
 	print
 	print("<b>--- <color=#0680f3>Capturing Packets</color> ---</b>")
