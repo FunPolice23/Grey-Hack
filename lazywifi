@@ -1,0 +1,183 @@
+//wifi script
+banner = function()
+    clear_screen()
+	print("<color=#ffffff><b><color=#0687f3>__         ______   ________  __      __  </color></color>")
+	print("<color=#ffffff><b><color=#0687f3>/  |       /      \\ /        |/  \\    /  |</color></color>")
+	print("<color=#ffffff><b><color=#0687f3>$$ |      /$$$$$$  |$$$$$$$$/ $$  \\  /$$/ </color></color>")
+	print("<color=#ffffff><b><color=#0687f3>$$ |      $$ |__$$ |    /$$/   $$  \\/$$/  </color></color>")
+	print("<color=#ffffff><b><color=#0687f3>$$ |      $$    $$ |   /$$/     $$  $$/   </color></color>")
+	print("<color=#ffffff><b><color=#0687f3>$$ |      $$$$$$$$ |  /$$/       $$$$/    </color></color>")
+	print("<color=#ffffff><b><color=#0687f3>$$ |_____ $$ |  $$ | /$$/____     $$ |    </color></color>")
+	print("<color=#ffffff><b><color=#0687f3>$$       |$$ |  $$ |/$$      |    $$ |    </color></color>")
+	print("<color=#ffffff><b><color=#0687f3>$$$$$$$$/ $$/   $$/ $$$$$$$$/     $$/     </color></color>")
+	print("")
+	print("<color=#ffffff><b><color=#0687f3> __       __  ______  ________  ______    </color></color>")
+	print("<color=#ffffff><b><color=#0687f3>/  |  _  /  |/      |/        |/      |   </color></color>")
+	print("<color=#ffffff><b><color=#0687f3>$$ | / \\ $$ |$$$$$$/ $$$$$$$$/ $$$$$$/    </color></color>")
+	print("<color=#ffffff><b><color=#0687f3>$$ |/$  \\$$ |  $$ |  $$ |__      $$ |     </color></color>")
+	print("<color=#ffffff><b><color=#0687f3>$$ /$$$  $$ |  $$ |  $$    |     $$ |     </color></color>")
+	print("<color=#ffffff><b><color=#0687f3>$$ $$/$$ $$ |  $$ |  $$$$$/      $$ |     </color></color>")
+	print("<color=#ffffff><b><color=#0687f3>$$$$/  $$$$ | _$$ |_ $$ |       _$$ |_    </color></color>")
+	print("<color=#ffffff><b><color=#0687f3>$$$/    $$$ |/ $$   |$$ |      / $$   |   </color></color>")
+	print("<color=#ffffff><b><color=#0687f3>$$/      $$/ $$$$$$/ $$/       $$$$$$/    </color></color>")
+	wait(1.7)
+	clear_screen()
+end function
+
+// --- Network Class ---------------------------------
+Network = {}
+Network.bssid = ""
+Network.power = 0
+Network.essid = ""
+
+Network.New = function(net_string)
+	net_parts = net_string.split(" ")
+	
+	self = new Network
+	self.bssid = net_parts[0]
+	self.power = net_parts[1][:-1].to_int
+	self.essid = net_parts[2]
+	return self
+end function
+
+// Function for right padding a string to a specified width
+pad_right = function(text, width)
+	while text.len < width
+		text = text + " "
+	end while
+	return text
+end function
+
+// --- Global Functions ------------------------------
+// Print usage details
+print_usage = function()
+	print("<b>Usage: hackwifi (opt: number_of_listings=10)</b>")
+end function
+
+select_wifi = function(count)
+	computer = get_shell.host_computer
+	networks = computer.wifi_networks("wlan0")
+	i = 0
+
+	// Limit the count to the number of available networks
+	if count > networks.len then count = networks.len
+
+	// Initialize sorted network list and placeholder for selected network
+	sorted_networks = []
+	chosen_network = new Network
+
+	// Process each network and track max/min power for reference
+	for net in networks
+		current_network = Network.New(net)
+		sorted_networks.push(current_network)
+		if current_network.power > chosen_network.power then
+			chosen_network = current_network
+		end if
+		i = i + 1
+	end for
+
+	// Sort networks by power in descending order
+	sorted_networks.sort("power")
+	sorted_networks.reverse()
+	if count > 0 then
+		i = 0
+		// Display each network in sorted order with color coding
+		print("<b>--- <color=#0680f3>Top</color> " + count + " <color=#0680f3>Wifi Networks</color> ---</b>")
+		while i < count
+			net = sorted_networks[i]
+			// Prepare color-coded power value for display
+			net_power_color = get_color(net.power) + net.power + "%</color>"
+			
+			print("<b>[<color=#0680f3>" + i + "</color>]</b> " + pad_right(net.essid, 15) + " [ " + net_power_color + " ]")
+			i = i + 1
+		end while
+
+		// Prompt user for network selection by index
+		print("\n<b><color=#0680f3>Choose a network</color> (default: highest power)</b> ")
+		index = user_input("<color=#06c6f3>|></color> ")
+		if index != "" then 
+			chosen_network = sorted_networks[index.to_int]
+		end if
+	end if
+	
+	// Return the chosen network
+	return chosen_network
+end function
+
+// Helper function to get color based on power level
+get_color= function(power, essid)
+	if power >= 80 then 
+		return "<color=#88f400>"
+	else if power >= 70 then 
+		return "<color=#f4d700>"
+	else if power >= 60 then 
+		return "<color=#f4ac00>"
+	else if power >= 50 then 
+		return "<color=#f48100>"
+	else if power >= 40 then
+		return "<color=#f45a00>"
+	else
+		return "<color=#f40000>"
+	end if
+end function
+
+wifi_exit = function()
+    message = user_input("Press Enter to exit")
+    if message == " " then 
+       exit()
+    end if
+    return
+end function
+
+// Perform wifi hack on Network object
+hack_wifi = function(chosen_network, crypto)
+	computer = get_shell.host_computer
+	cwd = current_path
+
+	// Rough estimate, should handle anything over 50%
+	acks = 2000 + ((1 - (chosen_network.power / 100)) * 6250)
+
+	print
+	print("<b>--- <color=#0680f3>Capturing Packets</color> ---</b>")
+	print("<b><color=#0680f3>ESSID</color>:</b> " + chosen_network.essid)
+	print("<b><color=#0680f3>BSSID</color>:</b> " + chosen_network.bssid)
+	print("<b><color=#0680f3>Power</color>:</b> " + chosen_network.power + "%")
+	print("<b><color=#0680f3>Capturing</color>:</b> ~" + acks + " ACKs\n")
+
+	crypto.airmon("start", "wlan0")
+	crypto.aireplay(chosen_network.bssid, chosen_network.essid, acks)
+	print
+
+	print("<b>--- <color=#0680f3>Password</color> ---</b>")
+	capture_file = computer.File(cwd + "/file.cap")
+	password = crypto.aircrack(capture_file.path)
+	capture_file.delete
+	print("<b><color=#0680f3>Password for</color> <color=orange>" + chosen_network.essid + "</color>:</b> " + password)
+	print("<b><color=#0680f3>Connecting to</color>:</b> <color=orange>" + chosen_network.essid + "</color>...")
+	computer.connect_wifi("wlan0", chosen_network.bssid, chosen_network.essid, password)
+	print
+end function
+
+
+// --- MAIN ------------------------------------------
+
+if params.len == 0 then
+	count = 20
+else if typeof(params[0].to_int) == "number" then
+	count = params[0].to_int
+else
+	print_usage
+	exit 
+end if
+
+cwd = current_path
+crypto = include_lib("/lib/crypto.so")
+if not crypto then crypto = include_lib(cwd + "/crypto.so")
+if not crypto then 
+	exit("<color=#FF0000>Error: Can't find crypto.so library in the /lib path or the current folder</color>")
+end if
+
+banner()
+chosen_network = select_wifi(count)
+hack_wifi(chosen_network, crypto)
+	
