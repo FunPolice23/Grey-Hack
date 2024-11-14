@@ -1,0 +1,52 @@
+// sudo replacement script
+// Because why not and felt it was a tad funny.
+
+main_pass = "PASSWORD"  // Main password for root access
+entry_pass = "KEY"  // Key to trigger shell access
+
+// Function to display loading bar -- 
+show_loading_bar = function() 
+    bar_length = 20  // Total length of the loading bar
+    delay_time = 0.2  // Adjust delay for loading effect speed
+
+    print("<color=orange><b>Correct</b> Entry key</color>, Now Loading..")  // Inform user of loading
+    wait(delay_time)  // Initial delay before showing loading bar
+    
+    for percentage in range(0, 101, 5)  // Show loading from 0% to 100%
+        // Calculate how many `=` symbols to display based on percentage
+        filled_length = percentage * bar_length / 100
+        loading_bar = "=" * filled_length  // Create the filled part of the bar
+        spaces = " " * (bar_length - filled_length)  // Fill the remaining space with empty spaces
+
+        // Display the loading bar and percentage
+        print("[" + loading_bar + spaces + "] " + percentage + "%")
+        wait(delay_time)  // Wait before updating the loading bar
+        clear_screen  // Clear the screen for the next update
+    end for
+
+    // Display a final message when loading reaches 100%
+    print("\nAccess Denied: Nice try, but you’re not getting in!")  // Final message on failure
+end function
+
+// Main execution flow
+print("Boom Chica, Boom Chica, Boom")  // Welcome message
+answer = user_input("> ")  // Prompt for the entry key
+
+// Validate input to ensure it's not empty
+if answer.len == 0 then
+    print("Entry key cannot be empty. Please try again.") 
+    exit()  // Exit if input is invalid
+end if
+
+// Check if the entered key matches the expected entry_pass
+if answer == entry_pass then
+    // Attempt to get the shell with the main password
+    shell = get_shell("root", main_pass)
+    if not shell then
+        exit("sudo: incorrect password")  // Exit if shell retrieval fails
+    end if
+    shell.start_terminal  // Start the shell terminal if successful
+else
+    // Show loading bar for incorrect entry
+    show_loading_bar()  // Call the loading bar function
+end if
