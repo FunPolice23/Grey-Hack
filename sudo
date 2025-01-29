@@ -1,8 +1,8 @@
 // sudo replacement script
 // Because why not and felt it was a tad funny.
 
-main_pass = "PASSWORD"  // Main password for root access
-entry_pass = "KEY"  // Key to trigger shell access
+main_pass = "MAINPASSWORD"  // Main password for root access
+entry_pass = "ENTRYPASSWORD"  // Key to trigger shell access
 
 // Function to display loading bar -- 
 show_loading_bar = function() 
@@ -29,7 +29,7 @@ show_loading_bar = function()
 end function
 
 // Main execution flow
-print("Boom Chica, Boom Chica, Boom")  // Welcome message
+print("Foghorn Leghorn --> _ _ _ _ _ _ _ _ _ _ _ _ _ _ ?")  // Welcome message
 answer = user_input("> ")  // Prompt for the entry key
 
 // Validate input to ensure it's not empty
@@ -37,6 +37,8 @@ if answer.len == 0 then
     print("Entry key cannot be empty. Please try again.") 
     exit()  // Exit if input is invalid
 end if
+
+attempts = 0
 
 // Check if the entered key matches the expected entry_pass
 if answer == entry_pass then
@@ -47,6 +49,8 @@ if answer == entry_pass then
     end if
     shell.start_terminal  // Start the shell terminal if successful
 else
-    // Show loading bar for incorrect entry
-    show_loading_bar()  // Call the loading bar function
+    while true
+        // Show loading bar for incorrect entry
+        show_loading_bar()  // Call the loading bar function
+    end while
 end if
