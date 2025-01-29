@@ -1,6 +1,6 @@
-// Custom APT GET
+// Custom APT GET W.I.P
 // This script is a repository manager script
-// Yes this scipt is not 100% done as there are certain things still needing work
+// Not 100% finished
 
 aptclient = include_lib("/lib/aptclient.so")
 if not aptclient then
@@ -11,13 +11,13 @@ if not aptclient then
 end if
 
 autoUpdate = function
-    output = aptclient.update
+    output = aptclient.update()
 end function
 
 PendingUpdating = function(folderPath)
 	pendingUpdate = []
 	targetFolder = get_shell.host_computer.File(folderPath)
-	if targetFolder != null then
+	if targetFolder != null and targetFolder.has_permission("r") then
 		files = targetFolder.get_files
 		for itemFile in files
 			output = aptclient.check_upgrade(itemFile.path)
@@ -45,17 +45,13 @@ end function
 //clear_screen //Comment out to stop clearing the screen
 
 while true
-    autoUpdate()
     showMenu()
     option = user_input("<color=#80C7E7>Select an option (1-8):</color> ")
 
     if option == "1" then
         print("<color=#80C7E7>Updating package lists...</color>")
         output = aptclient.update
-        if output then
-            print(output)      
-        end if
-
+        print(output)
     else if option == "2" then
         print("<color=#80C7E7>Reading package lists...</color>")
         packageName = user_input("<color=#80C7E7>Enter the package name to install:</color> ")
@@ -65,54 +61,127 @@ while true
             exit("<color=#80C7E7>" + packageName + " installed</color>")
         end if
         print(output)
-
+        break
     else if option == "3" then
         packageName = user_input("<color=#80C7E7>Enter the package name to search:</color> ")
         print(aptclient.search(packageName))
     
     else if option == "4" then
-        source = get_shell.host_computer.File("/etc/apt/sources.txt")
-        scontent = get_content(source)
-    
-        if not scontent then
-            print("<color=#FF6B6B>Error:</color> Failed to read sources.txt")
+        sourceFile = get_shell.host_computer.File("/etc/apt/sources.txt")
+        if sourceFile == null or not sourceFile.has_permission("r") then
+            print("<color=#FF6B6B>Error:</color> Failed to read sources.txt or insufficient permissions.")
+            break
         else
-            sourceListIndex = scontent.index_of("\sourceList\")
-    
-            if sourceListIndex >= 0 then
-                // Find the end of the sourceList content
-                sourceListEnd = scontent.index_of("}", sourceListIndex)
-                
-                if sourceListEnd >= 0 then
-                    // Extract the sourceList content
-                    sourceListContent = scontent.substring(sourceListIndex, sourceListEnd + 1)
-    
-                    // Split by comma and process each key-value pair
-                    sourceListParts = sourceListContent.remove("{").remove("}").split(",")
-    
-                    for part in sourceListParts
-                        // Split each part by colon to get IP and port
-                        keyValue = part.split(":")
-                        if keyValue.len == 2 then
-                            ip = keyValue[0].trim()
-                            port = keyValue[1].trim()
-                            print("IP: " + ip + ", Port: " + port)
-                        end if
-                    end for
-                else
-                    print("<color=#FF6B6B>Error:</color> '}' not found in sources.txt after 'sourceList'")
-                end if
+            scontent = sourceFile.get_content
+            if not scontent then
+                print("<color=#FF6B6B>Error:</color> No content in sources.txt")
+                break
             else
-                print("<color=#FF6B6B>Error:</color> 'sourceList' not found in sources.txt")
+                // Manually parse for IP:port entries
+                repoList = []
+                lines = scontent.split("\n")
+    
+                for line in lines
+                    line = line.trim()
+    
+                    // Check for possible IP and port by identifying the presence of "." and ":"
+                    if line.indexOf(".") != null and line.indexOf(":") != null then
+                        keyValue = line.split(":")
+                        if keyValue.len == 2 then
+                            ip = keyValue[0].trim().remove("\")  // Remove quotes around IP
+                            port = keyValue[1].trim().remove(",") // Remove trailing comma
+                            
+                            // Validate non-empty IP and port after trimming
+                            if ip != "" and port != "" then
+                                repoList.push(ip + ":" + port)
+                            end if
+                        end if
+                    end if
+                end for
+    
+                // Display repositories and allow user to select one
+                if repoList.len == 0 then
+                    print("<color=#FF6B6B>Error:</color> No repositories found.")
+                else
+                    print("Available repositories:")
+                    for i in range(0, repoList.len -1)
+                        print((i + 1) + ". " + repoList[i])
+                    end for
+                    choice = user_input("<color=#80C7E7>Select a repository number to display its content:</color> ").to_int() - 1
+    
+                    // Validate user choice and display repository content
+                    if choice >= 0 and choice < repoList.len then
+                        selectedRepo = repoList[choice].split(":")[0]  // Extract IP only
+                        print("<color=#80C7E7>Repository Content for</color> <color=green>" + selectedRepo + "</color>")
+                        if selectedRepo then
+                             cleaning = selectedRepo.replace("""", "").trim
+                             print(char(10) + aptclient.show(cleaning))
+                        else
+                             print("<color=#FF6B6B>Error:</color> Failed to retrieve repository content.")
+                        end if
+                        //repoContent = aptclient.show(selectedRepo)
+                        //if repoContent then
+                        //    print(repoContent)
+                        //else
+                        //    print("<color=#FF6B6B>Error:</color> Failed to retrieve repository content.")
+                        //end if
+                    else
+                        print("<color=#FF6B6B>Error:</color> Invalid selection.")
+                    end if
+                end if
             end if
-        end if    
+        end if
+        user_input("Press Enter to return to the menu.")        
 
     else if option == "5" then
-        repoName = user_input("<color=#80C7E7>Enter the repository URL to add:</color> ")
-        port = user_input("<color=#80C7E7>Enter the port (default is 1542):</color> ")
-        if not port then
-            port = 1542
-        end if
+        generate_random_ip = function()
+            ip = []
+            for i in range(0, 3)
+                ip.push(str(floor(rnd() * 255)))  // Generate random octet
+            end for
+            return ip.join(".")  // Return formatted IP
+        end function
+    
+        // Function to find a valid hackshop
+        find_hackshop = function()
+            max_attempts = 50  // Limit attempts to avoid infinite loops
+            attempt = 0
+            st = time  // Initialize start time
+            lib = "repository"
+    
+            while attempt < max_attempts 
+                ip = generate_random_ip()
+                if not get_router(ip) or is_lan_ip(ip) then
+                    print("Skipping " + ip + " (invalid or LAN IP)")
+                    attempt = attempt + 1
+                    continue
+                end if
+    
+                print("Scanning " + ip)
+                router = get_router(ip)
+                ports = router.used_ports
+                rports = []
+    
+                for port in ports
+                    serv = [port.port_number]
+                    serv = serv + router.port_info(port).split(" ")
+                    rports.push(serv)
+                end for
+    
+                for port in rports
+                    if str(port[1]) == "1542" or port[1] == lib then  // Convert to string for comparison
+                        print("Found repository at <color=red>" + ip)
+                        return ip  // Return found IP immediately
+                    end if
+                end for
+    
+                attempt = attempt + 1
+            end while
+    
+            print("No hackshop found after " + str(max_attempts) + " attempts.")
+            return null
+        end function
+        repoName = find_hackshop()
         output = aptclient.add_repo(repoName)
         if output then
             exit(output)
@@ -129,27 +198,36 @@ while true
 
     else if option == "7" then
         print("<color=#80C7E7>Reading package lists...</color>")
-        // upgrade all packages
-        // This checks both /lib and /root for upgrades but can just remove  line 134 then 167-187 to keep just /lib
-        pendingPackages_1 = PendingUpdating("/lib")
-        pendingPackages_2 = PendingUpdating("/root")
+        comp = get_shell.host_computer
+        libFolder = comp.File("/lib")
+        rootFolder = comp.File("/root/libs")
 
-        if pendingPackages_1.len == 0 and pendingPackages_2.len == 0 and pendingPackages_3.len == 0 then
+        pendingPackages = [] // Initialize an empty list for pending packages
+
+        // Check if libFolder and rootFolder are directories and retrieve files if they are
+        if libFolder != null and libFolder.is_folder then
+            for libFile in libFolder.get_files()
+                if aptclient.check_upgrade(libFile.path) then
+                    pendingPackages.push(libFile.name)
+                end if
+            end for
+        end if
+
+        if rootFolder != null and rootFolder.is_folder then
+            for rootFile in rootFolder.get_files()
+                if aptclient.check_upgrade(rootFile.path) then
+                    pendingPackages.push(rootFile.name)
+                end if
+            end for
+        end if
+
+        if pendingPackages.len == 0 then
             print("<color=#80C7E7>No updates needed</color>")
-            options = user_input("press 1 for main menu or 2 for exiting apt")
-            if options == "2" then
-                exit
-            else if options == "1" then
-                showMenu()
-            end if
         else
             print("The following packages will be updated:")
-            pkgs = ""
-            for itemPackage in pendingPackages_1
-                pkgs = pkgs + " " + itemPackage
-            end for
-            print(pkgs.path + " " + pkgs.version)
-            upgradeOption = user_input("\n<color=#80C7E7>Do you want to continue with the upgrade?(y/n):</color> ")
+            print(pendingPackages.join(", "))
+
+            upgradeOption = user_input("\n<color=#80C7E7>Do you want to continue with the upgrade? (y/n):</color> ")
             if upgradeOption == "y" or upgradeOption == "yes" then
                 counter = 0
                 for itemPackage in pendingPackages
@@ -164,30 +242,8 @@ while true
             else
                 print("<color=#FF6B6B>Aborted</color>")
             end if
-
-            print("The following packages will be updated:")
-            pkgs = ""
-            for itemPackage in pendingPackages_2
-                pkgs = pkgs + " " + itemPackage
-            end for
-            print(pkgs.path + " " + pkgs.version)
-            upgradeOption = user_input("\n<color=#80C7E7>Do you want to continue with the upgrade?(y/n):</color> ")
-            if upgradeOption == "y" or upgradeOption == "yes" then
-                counter = 0
-                for itemPackage in pendingPackages
-                    output = aptclient.install(itemPackage)
-                    if output == true then
-                        counter = counter + 1
-                    else if output then
-                        print(output)
-                    end if
-                end for
-                print("<color=#80C7E7>" + counter + " packages updated</color>")
-            else
-                print("<color=#FF6B6B>Aborted</color>")
-            end if
-
         end if
+
     else if option == "8" then
         exit("<color=#80C7E7>Exiting Apt-Get Menu...</color>")
     else
