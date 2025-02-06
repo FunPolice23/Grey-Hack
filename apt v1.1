@@ -1,4 +1,5 @@
 // Custom APT-GET Script
+
 aptclient = include_lib("/lib/aptclient.so")
 if not aptclient then
     aptclient = include_lib(current_path + "/aptclient.so")
@@ -16,8 +17,8 @@ updateApt = function()
 end function
 
 libraryInstall = function()
-    print("<color=#80C7E7>Reading package lists...</color>")
-    packageName = user_input("<color=#80C7E7>Enter the package name to install:</color> ")
+    print("\n<color=#80C7E7>Enter the name of the file to download</color>\n<color=#80C7E7>Check option 4 to help with file names.</color>")
+    packageName = user_input("<color=#80C7E7>Package name</color> |<color=red>></color> ")
     print("<color=#80C7E7>Downloading " + packageName + "</color>")
     
     output = aptclient.install(packageName)
@@ -26,7 +27,7 @@ libraryInstall = function()
     else if typeof(output) == "string" then
         print("<color=#FF6B6B>Error:</color> " + output)
     else
-        print("<color=#FF6B6B>Error:</color> Installation failed.")
+        print("<color=#FF6B6B>Error:</color> No input, returning")
     end if
 end function
 
@@ -49,9 +50,9 @@ repositoryList = function()
     end if
 
     repoList = []
-    lines = scontent.split("\n")
+    //lines = scontent.split("\n")
 
-    for line in lines
+    for line in scontent.split("\n")
         line = line.trim()
 
         if line.indexOf(":") != null then
@@ -212,26 +213,20 @@ repositoryDel = function()
             else
                 print("Available repositories:")
                 for i in range(0, repoList.len -1)
-                    print((i + 1) + ". " + repoList[i])
+                    print((i) + ". " + repoList[i])
                 end for
-                choice = user_input("<color=#80C7E7>Select a repository to delete from sources.txt</color> ").to_int()
-                
+                choice = user_input("<color=#80C7E7>Select a repository to delete from sources.txt</color>\n|<color=red>></color> ").to_int()
+                print(choice)
                 // Validate user choice and display repository content
                 if choice >= 0 and choice < repoList.len then
                     selectedRepo = repoList[choice].split(":")[0]  // Extract IP only
-                    print("<color=#80C7E7>Repository Content for</color> <color=green>" + selectedRepo + "</color>")
+                    print("<color=#80C7E7>Removing repository ip</color> <color=green>" + selectedRepo + "</color>")
                     if selectedRepo then
-                            cleaning = selectedRepo.replace("""", "").trim
-                            return print(char(10) + aptclient.del_repo(cleaning))
+                        cleaning = selectedRepo.replace("""", "").trim
+                        return print(aptclient.del_repo(cleaning))
                     else
-                            return print("<color=#FF6B6B>Error:</color> Failed to retrieve repository content.")
+                        return print("<color=#FF6B6B>Error:</color> Failed to retrieve repository content.")
                     end if
-                    //repoContent = aptclient.show(selectedRepo)
-                    //if repoContent then
-                    //    print(repoContent)
-                    //else
-                    //    print("<color=#FF6B6B>Error:</color> Failed to retrieve repository content.")
-                    //end if
                 else
                     print("<color=#FF6B6B>Error:</color> Invalid selection.")
                 end if
@@ -302,8 +297,7 @@ showMenu = function()
         print("<color=#80C7E7>6. <color=#77E088>Remove repository</color></color>")
         print("<color=#80C7E7>7. <color=#77E088>Upgrade packages</color></color>")
         print("<color=#FF6B6B>8. <color=#FF6B6B>Exit</color></color>")
-
-        choice = user_input("<color=#80C7E7>What service would you like?</color> ").to_int()
+        choice = user_input("<color=#80C7E7>What service would you like?</color>\n|<color=red>></color> ").to_int()
 
         if choice == 1 then 
             updateApt()
