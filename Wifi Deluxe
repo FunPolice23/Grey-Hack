@@ -1,0 +1,144 @@
+// Fixed line 69 from for loops into while loop.
+// Removed larger banner for smaller.
+// Updated select wifi and hack wifi code
+
+// --- WiFi Hacking Script --------------------------------
+comp = get_shell.host_computer
+crypto = include_lib("/lib/crypto.so")
+if not crypto then crypto = include_lib(current_path + "/crypto.so")
+if not crypto then 
+	exit("<color=#FF0000>Error: Can't find crypto.so</color>")
+end if
+
+banner = function()
+    print("<color=#0687f3><b> WiFi Hack Script </b></color>")
+    wait(0.5)
+end function
+
+Network = {}
+Network.bssid = ""
+Network.power = 0
+Network.essid = ""
+
+Network.New = function(net_string)
+    net_parts = net_string.split(" ")
+    self = new Network
+    self.bssid = net_parts[0]
+    self.power = net_parts[1][:-1].to_int
+    self.essid = net_parts[2]
+    return self
+end function
+
+pad_right = function(text, width)
+    if text.len < width then
+        return text + (" " * (width - text.len))
+    end if
+    return text
+end function
+
+select_wifi = function(count)
+    computer = get_shell.host_computer
+    print("<color=#80C7E7>Scanning WiFi networks...</color>")
+    wait(1.5)
+
+    networks = computer.wifi_networks("wlan0")
+    if networks.len == 0 then
+        print("<color=red>No WiFi networks found!</color>")
+        retry = user_input("Retry? (y/n) |> ")
+        if retry == "y" or retry == "Y" then
+            return select_wifi(count)
+        else
+            exit()
+        end if
+    end if
+
+    sorted_networks = []
+    chosen_network = null
+
+    for net in networks
+        current_network = Network.New(net)
+        sorted_networks.push(current_network)
+        if chosen_network == null or current_network.power > chosen_network.power then
+            chosen_network = current_network
+        end if
+    end for
+
+    sorted_networks.sort("power")
+    sorted_networks.reverse()
+    
+    print("<b>--- <color=#0680f3>Top</color> " + count + " <color=#0680f3>WiFi Networks</color> ---</b>")
+    i = 0
+    while i < count and i < sorted_networks.len
+        net = sorted_networks[i]
+        net_power_color = get_color(net.power) + net.power + "%</color>"
+        print("<b>[<color=#0680f3>" + i + "</color>]</b> " + pad_right(net.essid, 15) + " [ " + net_power_color + " ]")
+        i = i + 1
+    end while
+
+    index = user_input("<color=#06c6f3>|></color> ")
+    if index != "" then 
+        chosen_network = sorted_networks[index.to_int]
+    end if
+    return chosen_network
+end function
+
+get_color = function(power)
+    if power >= 80 then 
+        return "<color=#88f400>"
+    else if power >= 70 then 
+        return "<color=#f4d700>"
+    else if power >= 60 then
+        return "<color=#f4ac00>"
+    else if power >= 50 then
+        return "<color=#f48100>"
+    else if power >= 40 then
+        return "<color=#f45a00>"
+    else 
+        return "<color=#f40000>"
+    end if
+end function
+
+hack_wifi = function(chosen_network)
+    cwd = current_path
+    acks = 2000 + ((1 - (chosen_network.power / 100)) * 6250)
+
+    print("\n<b><color=orange>Capturing packets...</color></b>")
+    print("<b><color=#0680f3>ESSID</color>: </b>" + chosen_network.essid)
+    print("<b><color=#0680f3>BSSID</color>: </b>" + chosen_network.bssid)
+    print("<b><color=#0680f3>Power</color>: </b>" + chosen_network.power + "%")
+    print("<b><color=#0680f3>Capturing</color>: ~" + acks + " ACKs\n")
+
+    crypto.airmon("start", "wlan0")
+    crypto.aireplay(chosen_network.bssid, chosen_network.essid, acks)
+
+    print("\n<b><color=orange>Waiting for capture file...</color></b>")
+    
+    capture_file = comp.File(cwd + "/file.cap")
+    retries = 5  // Max retry attempts
+    while retries > 0
+        if capture_file then
+            break
+        end if
+        wait(1)  // Wait a second before retrying
+        retries = retries - 1
+    end while
+
+    if not capture_file then
+        exit("<color=red>Error:</color> Capture file missing. Attack may have failed.")
+    end if
+
+    print("\n<b><color=orange>Decrypting password...</color></b>")
+    wait(2)
+
+    password = crypto.aircrack(capture_file.path)
+    capture_file.delete
+
+    print("<b><color=#0680f3>Password for</color> <color=orange>" + chosen_network.essid + "</color>: </b>" + password)
+    print("<b><color=#0680f3>Connecting to</color>: </b>" + chosen_network.essid + "...")
+    
+    comp.connect_wifi("wlan0", chosen_network.bssid, chosen_network.essid, password)
+end function
+
+banner()
+chosen_network = select_wifi(10)
+hack_wifi(chosen_network)
