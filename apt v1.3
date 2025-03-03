@@ -1,7 +1,9 @@
 // Custom APT-GET Script
 // Random Hackshop repository search and add to sources.txt for add repository
 // Selection for repository show, which also shows for library install
-// upgraded the libraryUpgrade function to search and select which file to upgrade or all
+// Version 1.3
+// Fixed repositoryDel not correctly selecting listed repository and minor code updates
+// Fixed Library upgrades when finding files, improved error checking
 
 comp = get_shell.host_computer
 
@@ -203,7 +205,7 @@ repositoryDel = function()
                 if line.indexOf(".") != null and line.indexOf(":") != null then
                     keyValue = line.split(":")
                     if keyValue.len == 2 then
-                        ip = keyValue[0].trim().remove("\")  // Remove quotes around IP
+                        ip = keyValue[0].trim().remove("""")  // Remove quotes around IP
                         port = keyValue[1].trim().remove(",") // Remove trailing comma
                         
                         // Validate non-empty IP and port after trimming
@@ -218,24 +220,38 @@ repositoryDel = function()
             if repoList.len == 0 then
                 print("<color=#FF6B6B>Error:</color> No repositories found.")
             else
-                print("Available repositories:")
-                for i in range(0, repoList.len -1)
+                print("<color=#80C7E7>Available repositories</color>:")
+                for i in range(0, repoList.len -1 )
                     print((i + 1) + ". " + repoList[i])
                 end for
-                choice = user_input("<color=#80C7E7>Select a repository to delete from sources.txt</color>\n|<color=red>></color> ").to_int()
-                print(choice)
-                // Validate user choice and display repository content
-                if choice >= 0 and choice < repoList.len then
-                    selectedRepo = repoList[choice].split(":")[0]  // Extract IP only
-                    print("<color=#80C7E7>Repository Content for</color> <color=green>" + selectedRepo + "</color>")
-                    if selectedRepo then
-                        cleaning = selectedRepo.replace("""", "").trim
-                        return print(char(10) + aptclient.del_repo(cleaning))
-                    else
-                        return print("<color=#FF6B6B>Error:</color> Failed to retrieve repository content.")
+                choice = user_input("<color=#80C7E7>Select a repository to delete from sources.txt</color>\n|<color=red>></color> ")
+
+                // Ensure the input is a valid number
+                if typeof(choice.to_int()) != "number" then
+                    print("<color=#FF6B6B>Error:</color> Invalid input. Please enter a number.")
+                    return
+                end if
+
+                choice = choice.to_int() - 1  // Convert to zero-based index
+
+                // Ensure valid range
+                if choice < 0 or choice >= repoList.len then
+                    print("<color=#FF6B6B>Error:</color> Invalid selection.")
+                    return
+                end if
+
+                // Extract selected repository IP and remove quotes if necessary
+                selectedRepo = repoList[choice].replace("""", "").split(":")[0].trim()
+
+                if is_valid_ip(selectedRepo) then
+                    cleaning = selectedRepo.replace(" ", "").trim()
+                    output = aptclient.del_repo(cleaning)
+                    print("<color=#80C7E7>Repository removed:</color> <color=green>" + cleaning + "</color>")
+                    if output then
+                        print("<color=#FF6B6B>Error:</color> " + output)
                     end if
                 else
-                    print("<color=#FF6B6B>Error:</color> Invalid selection.")
+                    print("<color=#FF6B6B>Error:</color> Failed to retrieve repository content.")
                 end if
             end if
         end if
@@ -257,11 +273,12 @@ libraryUpgrade = function()
         for file in files
             if file.name.indexOf(".so") == file.name.len - 3 then  // Check for .so files
                 result = aptclient.check_upgrade(file.path)
-    
+                print("DEBUG " + result)
                 // Handle errors from aptclient
                 if typeof(result) == "string" then
                     print("<color=red>Error checking " + file.path + ":</color> " + result)
-                    continue
+                    print("<color=red>This Error is showing because you need a hackshop repository.\nReturning to menu, select option 5 for adding a repository")
+                    return showMenu()
                 end if
     
                 // Only add upgradeable libraries
