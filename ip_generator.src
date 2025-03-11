@@ -1,0 +1,208 @@
+// Updated code, better formatting and coloring
+// Better searching for specific library and number of.
+
+// Color constants for better output
+COLOR_DEFAULT = "#009900"
+COLOR_ERROR = "#FF0000"
+COLOR_INFO = "#33CCFF"
+COLOR_WARNING = "#FFA500"
+COLOR_SUCCESS = "#00FF00"
+
+// Utility function to print colored messages
+printMsg = function(msg, color=COLOR_DEFAULT)
+    print("<color=" + color + ">" + msg + "</color>")
+end function
+
+// Generate a random, valid IP address
+getRandomIp = function()
+    firstByteRange = range(1, 223)  // 1-223 avoids most reserved/private ranges
+    firstByteRange.remove(10)      // Private
+    firstByteRange.remove(172)     // Private (172.16-31 handled below)
+    firstByteRange.remove(192)     // Private (192.168 handled below)
+    
+    restByteRange = range(0, 255)
+    
+    while true
+        ip = [firstByteRange[floor(rnd() * firstByteRange.len)], floor(rnd() * 256), floor(rnd() * 256), floor(rnd() * 256)].join(".")
+        
+        ipParts = ip.split("\.")
+        firstByte = ipParts[0].to_int
+        secondByte = ipParts[1].to_int
+        
+        if firstByte == 172 and secondByte >= 16 and secondByte <= 31 then continue
+        if firstByte == 192 and secondByte == 168 then continue
+        
+        if is_valid_ip(ip) and get_router(ip) and get_shell.ping(ip) then
+            return ip
+        end if
+    end while
+end function
+
+// Scan for libraries or router version
+scanLibrary = function(lib, ver, ipCountLimit, knownIps=null)
+    ipCount = 0
+    scannedIps = 0
+    maxScans = ipCountLimit * 20  // Increased to 20x for rare libraries
+    
+    scanMsg = "Scanning for " + lib
+    if ver then
+        scanMsg = scanMsg + " v" + ver
+    else
+        scanMsg = scanMsg + " (any version)"
+    end if
+    scanMsg = scanMsg + "..."
+    printMsg(scanMsg, COLOR_INFO)
+    
+    // Scan known IPs first if provided
+    if knownIps != null then
+        for ip in knownIps
+            if not is_valid_ip(ip) or not get_shell.ping(ip) then continue
+            router = get_router(ip)
+            if not router then continue
+            
+            scannedIps = scannedIps + 1
+            if lib == "router" then
+                kernelVer = router.kernel_version
+                ipCount = ipCount + 1
+                if not ver or kernelVer == ver then
+                    printMsg(ip + " router kernel " + kernelVer, COLOR_SUCCESS)
+                end if
+            else
+                ports = router.used_ports
+                for port in ports
+                    infoStr = router.port_info(port)
+                    info = infoStr.split(" ")
+                    if info.len < 2 then continue
+                    portLib = info[0]
+                    portVer = info[-1]
+                    
+                    if portLib == lib then
+                        ipCount = ipCount + 1
+                        if not ver or portVer == ver then
+                            printMsg(ip + ":" + port.port_number + " " + portLib + " " + portVer, COLOR_SUCCESS)
+                        end if
+                    end if
+                end for
+            end if
+            if scannedIps % 50 == 0 then
+                printMsg("Scanned " + scannedIps + " IPs, found " + ipCount + " matches", COLOR_WARNING)
+            end if
+        end for
+    end if
+    
+    // Continue with random IPs until limit is reached
+    while ipCount < ipCountLimit and scannedIps < maxScans
+        ip = getRandomIp()
+        scannedIps = scannedIps + 1
+        
+        if is_lan_ip(ip) then continue
+        
+        router = get_router(ip)
+        if not router then continue
+        
+        if lib == "router" then
+            kernelVer = router.kernel_version
+            ipCount = ipCount + 1
+            if not ver or kernelVer == ver then
+                printMsg(ip + " router kernel " + kernelVer, COLOR_SUCCESS)
+            end if
+        else
+            ports = router.used_ports
+            for port in ports
+                infoStr = router.port_info(port)
+                info = infoStr.split(" ")
+                if info.len < 2 then continue
+                portLib = info[0]
+                portVer = info[-1]
+                
+                if portLib == lib then
+                    ipCount = ipCount + 1
+                    if not ver or portVer == ver then
+                        printMsg(ip + ":" + port.port_number + " " + portLib + " " + portVer, COLOR_SUCCESS)
+                    end if
+                end if
+            end for
+        end if
+        
+        if scannedIps % 50 == 0 then
+            printMsg("Scanned " + scannedIps + " IPs, found " + ipCount + " matches", COLOR_WARNING)
+            if ipCount == 0 then
+                printMsg("No matches yet - " + lib + " might be rare", COLOR_ERROR)
+            end if
+        end if
+    end while
+    
+    printMsg("Final: Scanned " + scannedIps + " IPs, found " + ipCount + " matches", COLOR_INFO)
+    if scannedIps >= maxScans then
+        printMsg("Max scan limit (" + maxScans + ") reached, stopping", COLOR_ERROR)
+    end if
+    
+    rescan(lib, ver, ipCountLimit, knownIps)
+end function
+
+// Display menu and get user choice
+menu = function()
+    clear_screen
+    printMsg("[Available Libraries]", COLOR_INFO)
+    options = ["1: ssh", "2: repository", "3: chat", "4: http", "5: ftp", "6: rshell", "7: router"]
+    for opt in options
+        printMsg(opt, COLOR_DEFAULT)
+    end for
+    return user_input("Enter number (1-7): ")
+end function
+
+// Handle rescan options
+rescan = function(lib, ver, ipCountLimit, knownIps)
+    printMsg("\nScan complete!", COLOR_SUCCESS)
+    printMsg("Options:", COLOR_INFO)
+    printMsg("1: Rescan same library", COLOR_DEFAULT)
+    printMsg("2: Return to menu", COLOR_DEFAULT)
+    printMsg("3: Exit", COLOR_DEFAULT)
+    
+    choice = user_input("Choice (1-3): ")
+    if choice == "1" then
+        scanLibrary(lib, ver, ipCountLimit, knownIps)
+    else if choice == "2" then
+        main()
+    else if choice == "3" then
+        exit("Exiting...")
+    else
+        printMsg("Invalid choice, returning to menu", COLOR_ERROR)
+        main()
+    end if
+end function
+
+// Main execution
+main = function()
+    choice = menu()
+    
+    libMap = {"1": "ssh", "2": "repository", "3": "chat", "4": "http", "5": "ftp", "6": "rshell", "7": "router"}
+    
+    lib = libMap[choice]
+    if not lib then
+        exit("Invalid choice. Usage: [lib] (version)")
+    end if
+    
+    ver = null
+    if choice != "7" then
+        verInput = user_input("Enter version (press Enter for any): ")
+        if verInput != "" then ver = verInput
+    end if
+    
+    ipCountLimit = user_input("Number of IPs to find? > ").to_int
+    if ipCountLimit <= 0 then
+        printMsg("Please enter a positive number", COLOR_ERROR)
+        main()
+        return
+    end if
+    
+    knownIpsInput = user_input("Enter known IPs with " + lib + " (comma-separated, or press Enter for none): ")
+    knownIps = null
+    if knownIpsInput != "" then
+        knownIps = knownIpsInput.split(",")
+    end if
+    
+    scanLibrary(lib, ver, ipCountLimit, knownIps)
+end function
+
+main()
