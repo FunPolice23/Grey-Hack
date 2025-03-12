@@ -1,4 +1,4 @@
-// Custom APT-GET Script
+// Custom APT-GET Script V1
 // Random Hackshop repository search and add to sources.txt for add repository
 // Selection for repository show, which also shows for library install
 // Fixed repositoryDel for repository removal
