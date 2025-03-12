@@ -1,0 +1,435 @@
+// Custom APT-GET Script V2 with Backups
+// Updated apt with new backup of librarys that are upgraded to /root/backupLibs and if not found creates it
+// Fixed library upgrade searching and added confirmation to /root folders and /rkit but can change to whatever
+// Random Hackshop repository search and add to sources.txt for add repository
+// Selection for repository show, which also shows for library install
+
+comp = get_shell.host_computer
+
+aptclient = include_lib("/lib/aptclient.so")
+if not aptclient then
+    aptclient = include_lib(current_path + "/aptclient.so")
+end if
+if not aptclient then
+    exit("<color=#FF6B6B>Error:</color> Missing aptclient.so library in the /lib path or the current folder")
+end if
+
+loop = 0
+
+updateApt = function()
+    print("<color=#80C7E7>Updating package lists...</color>")
+    output = aptclient.update()
+    print(output)
+end function
+
+libraryInstall = function()
+    repo_list = repositoryList()
+    print(repo_list)
+    print("\n<color=#80C7E7>Enter the name of the file to download</color>\n<color=#80C7E7>Check option 4 to help with file names.</color>")
+    packageName = user_input("<color=#80C7E7>Package name</color> |<color=red>></color> ")
+    print("<color=#80C7E7>Downloading " + packageName + "</color>")
+    
+    output = aptclient.install(packageName)
+    if typeof(output) == "number" and output == 1 then
+        print("<color=#80C7E7>" + packageName + " installed successfully.</color>")
+    else if typeof(output) == "string" then
+        print("<color=#FF6B6B>Error:</color> " + output)
+    else
+        print("<color=#FF6B6B>Error:</color> No input, returning")
+    end if
+end function
+
+repositorySearch = function()
+    //packageName = user_input("<color=#80C7E7>Enter the package name to search:</color> ")
+    print(aptclient.search(""))
+end function
+
+repositoryList = function()
+    sourceFile = get_shell.host_computer.File("/etc/apt/sources.txt")
+    if sourceFile == null or not sourceFile.has_permission("r") then
+        print("<color=#FF6B6B>Error:</color> Failed to read sources.txt or insufficient permissions.")
+        return
+    end if
+
+    scontent = sourceFile.get_content()
+    if not scontent or scontent.len == 0 then
+        print("<color=#FF6B6B>Error:</color> No content in sources.txt")
+        return
+    end if
+
+    repoList = []
+    //lines = scontent.split("\n")
+
+    for line in scontent.split("\n")
+        line = line.trim()
+
+        if line.indexOf(":") != null then
+            keyValue = line.replace("""", "").replace(",", "").split(":")
+            if keyValue.len == 2 then
+                ip = keyValue[0].trim()
+                port = keyValue[1].trim()
+
+                if is_valid_ip(ip) and port.to_int() > 0 then
+                    repoList.push(ip + ":" + port)
+                end if
+            end if
+        end if
+    end for
+
+    if repoList.len == 0 then
+        print("<color=#FF6B6B>Error:</color> No repositories found.")
+        return
+    end if
+
+    print("Available repositories:")
+    for i in range(0, repoList.len -1)
+        print((i + 1) + ". " + repoList[i])
+    end for
+
+    choice = user_input("<color=#80C7E7>Select a repository number to display its content:</color> ").to_int() -1
+
+    if choice >= 0 and choice < repoList.len then
+        selectedRepo = repoList[choice].split(":")[0]  // Extract IP only
+        print("<color=#80C7E7>Repository Content for</color> <color=green>" + selectedRepo + "</color>")
+        if is_valid_ip(selectedRepo) then
+            cleaning = selectedRepo.remove(" ").trim
+            print("\n" + aptclient.show(cleaning))
+        else
+            print("<color=#FF6B6B>Error:</color> Failed to retrieve repository content.")
+        end if
+    else
+        print("<color=#FF6B6B>Error:</color> Invalid selection.")
+    end if
+end function
+
+repositoryAdd = function()
+    generate_random_ip = function()
+        ip = []
+        for i in range(0, 3)
+            ip.push(str(floor(rnd() * 255)))  // Generate random octet
+        end for
+        return ip.join(".")  // Return formatted IP
+    end function
+
+    // Function to find a valid hackshop
+    find_hackshop = function()
+        max_attempts = 50  // Attempts per cycle
+        retry_attempts = 5  // Number of retry cycles before giving up
+        retry_count = 0
+
+        sources = get_shell.host_computer.File("/etc/apt/sources.txt")
+        if not sources then
+            ask = user_input("sources.txt file was not found, would you like to create it? (y/n)\n|> ")
+            if ask == "y" or ask == "Y" then
+                print(aptclient.update() + "\n")
+            else if ask == "n" or ask == "N" then
+                return
+            end if
+        end if
+
+        while retry_count < retry_attempts
+            attempt = 0
+            print("<color=#80C7E7>Searching for a hackshop... (Attempt Cycle " + str(retry_count + 1) + " of " + str(retry_attempts) + ")</color>")
+    
+            while attempt < max_attempts
+                wait(0.1)
+                ip = generate_random_ip()
+                if not get_router(ip) or is_lan_ip(ip) then
+                    print("Skipping " + ip + " (invalid or LAN IP)")
+                    attempt = attempt + 1
+                    continue
+                end if
+    
+                print("Scanning " + ip)
+                router = get_router(ip)
+                ports = router.used_ports
+                rports = []
+
+                for port in ports
+                    serv = [port.port_number]
+                    serv = serv + router.port_info(port).split(" ")
+                    rports.push(serv)
+                end for
+
+                for port in rports
+                    if str(port[1]) == "1542" or port[1] == "repository" then  // Convert to string for comparison
+                        print("Found repository at <color=red>" + ip)
+                        return ip  // Return found IP immediately
+                    end if
+                end for
+    
+                attempt = attempt + 1
+            end while
+    
+            retry_count = retry_count + 1
+            print("<color=orange>No hackshop found after</color> " + str(max_attempts) + " <color=orange>attempts.</color>")
+            
+            if retry_count < retry_attempts then
+                print("<color=#80C7E7>Retrying...</color>")
+                wait(1.5)  // Pause before retrying (prevents spam scanning)
+            else
+                print("<color=#FF6B6B>Failed to find a hackshop after</color> " + str(max_attempts * retry_attempts) + " <color=#FF6B6B>total attempts.</color>")
+                return null  // Give up after all retries
+            end if
+        end while
+    end function
+    
+    repoName = find_hackshop()
+    output = aptclient.add_repo(repoName)
+    if output then
+        exit(output)
+    end if
+    print("<color=#80C7E7>Repository</color> <color=red>" + repoName + "</color> <color=#80C7E7>added successfully.</color>\n<color=#80C7E7>Launch apt with the update option to apply the changes</color>")
+end function
+
+repositoryDel = function()
+    sourceFile = get_shell.host_computer.File("/etc/apt/sources.txt")
+    if sourceFile == null or not sourceFile.has_permission("r") then
+        print("<color=#FF6B6B>Error:</color> Failed to read sources.txt or insufficient permissions.")
+        break
+    else
+        scontent = sourceFile.get_content
+        if not scontent then
+            print("<color=#FF6B6B>Error:</color> No content in sources.txt")
+            break
+        else
+            // Manually parse for IP:port entries
+            repoList = []
+            lines = scontent.split("\n")
+
+            for line in lines
+                line = line.trim()
+
+                // Check for possible IP and port by identifying the presence of "." and ":"
+                if line.indexOf(".") != null and line.indexOf(":") != null then
+                    keyValue = line.split(":")
+                    if keyValue.len == 2 then
+                        ip = keyValue[0].trim().remove("""")  // Remove quotes around IP
+                        port = keyValue[1].trim().remove(",") // Remove trailing comma
+                        
+                        // Validate non-empty IP and port after trimming
+                        if ip != "" and port != "" then
+                            repoList.push(ip + ":" + port)
+                        end if
+                    end if
+                end if
+            end for
+
+            // Display repositories and allow user to select one
+            if repoList.len == 0 then
+                print("<color=#FF6B6B>Error:</color> No repositories found.")
+            else
+                print("<color=#80C7E7>Available repositories</color>:")
+                for i in range(0, repoList.len -1 )
+                    print((i + 1) + ". " + repoList[i])
+                end for
+                choiceRaw = user_input("<color=#80C7E7>Select a repository to delete from sources.txt</color>\n|<color=red>></color> ")
+
+                // Ensure the input is a valid number
+                if typeof(choiceRaw.to_int()) != "number" then
+                    print("<color=#FF6B6B>Error:</color> Invalid input. Please enter a number.")
+                    return
+                end if
+
+                choice = choiceRaw.to_int() - 1  // Convert to zero-based index
+
+                // Ensure valid range
+                if choice < 0 or choice >= repoList.len then
+                    print("<color=#FF6B6B>Error:</color> Invalid selection.")
+                    return
+                end if
+
+                // Extract selected repository IP and remove quotes if necessary
+                selectedRepo = repoList[choice].replace("""", "").split(":")[0].trim()
+
+                if is_valid_ip(selectedRepo) then
+                    cleaning = selectedRepo.replace(" ", "").trim()
+                    output = aptclient.del_repo(cleaning)
+                    print("<color=#80C7E7>Repository removed:</color> " + cleaning)
+                    if output then
+                        print("<color=#FF6B6B>Error:</color> " + output)
+                    end if
+                else
+                    print("<color=#FF6B6B>Error:</color> Failed to retrieve repository content.")
+                end if
+            end if
+        end if
+    end if
+    user_input("Press Enter to return to the menu.")
+end function
+
+libraryUpgrade = function()
+    print("\n<color=#80C7E7>Scanning your system for upgradable libraries...</color>")
+    upgradableLibs = {}
+
+    scanForLibraries = function(dir)
+        root_folder = comp.File(dir)
+        if not root_folder or not root_folder.has_permission("r") then return
+    
+        folders = root_folder.get_folders()
+        files = root_folder.get_files()
+        
+        // ✅ Skip scanning backup folder
+        if dir == "/root/backupLibs" then
+            return
+        end if
+        
+        for file in files
+            fileName = file.name
+            filePath = file.path
+            if fileName.indexOf(".so") == fileName.len - 3 then  // Check for .so files
+                result = aptclient.check_upgrade(filePath)
+    
+                if typeof(result) == "string" then
+                    print("<color=red>Error checking " + filePath + ":</color> " + result)
+                    return showMenu()
+                end if
+    
+                if result == 1 then
+                    print("<color=#80C7E7>Upgradable Library Found:</color> <color=yellow>" + filePath + "</color>")
+                    upgradableLibs[upgradableLibs.len + 1] = filePath
+                end if
+            end if
+        end for
+    
+        for subfolder in folders
+            scanForLibraries(subfolder.path)
+        end for
+    end function    
+
+    scanForLibraries("/")  // Start scanning from root
+
+    if upgradableLibs.len == 0 then
+        print("<color=orange>No updates available.</color>")
+        return
+    end if
+
+    print("\n<color=#80C7E7>Upgradable Libraries:</color>")
+    for idx in upgradableLibs.indexes
+        print("[" + str(idx) + "] <color=yellow>" + upgradableLibs[idx] + "</color>")
+    end for
+    print("[0] <color=red>Upgrade All</color>")
+
+    userChoice = user_input("\nEnter the number(s) to upgrade (comma-separated) or [0] for all: ").replace(" ", "").split(",")
+
+    toUpdate = []
+    upgradeAll = false
+
+    for choice in userChoice
+        if choice == "0" then
+            upgradeAll = true
+            break
+        end if
+    end for
+
+    if upgradeAll then
+        for idx in upgradableLibs.indexes
+            toUpdate.push(upgradableLibs[idx])
+        end for
+    else
+        for choice in userChoice
+            if upgradableLibs.hasIndex(choice.to_int()) then
+                toUpdate.push(upgradableLibs[choice.to_int()])
+            end if
+        end for
+    end if
+
+    if toUpdate.len == 0 then
+        print("<color=red>No valid selections. Aborting.</color>")
+        return
+    end if
+
+    // Backup Folder Path
+    backupFolder = "/root/backupLibs"
+
+    // Ask if the user wants to backup libraries before updating
+    backupChoice = user_input("\n<color=orange>Do you want to back up the current libraries before upgrading? (y/n)</color>\n|> ")
+
+    if backupChoice == "y" or backupChoice == "Y" then
+        backupEnabled = true
+        print("\n<color=#80C7E7>Backup enabled. Libraries will be saved in:</color> " + backupFolder)
+        
+        // Create backup directory if it doesn't exist
+        backupDir = comp.File(backupFolder)
+        if not backupDir then
+            comp.create_folder("/root", "backupLibs")
+        end if
+    else
+        backupEnabled = false
+    end if
+
+    updatedCount = 0
+    print("\n<color=#80C7E7>Starting upgrade process...</color>")
+
+    for lib in toUpdate
+        packageName = lib.split("/")[-1]  // Extract filename only
+        installPath = ""  // Default install location
+
+        // Check if outside /lib
+        if lib.indexOf("/lib/") == null then
+            userConfirm = user_input("<color=orange>Library " + lib + " is outside /lib/. Upgrade? (y/n)</color>\n|> ")
+            if userConfirm != "y" and userConfirm != "Y" then
+                print("<color=red>Skipping:</color> " + lib)
+                continue
+            end if
+            installPath = parent_path(lib)  // Set install path to original directory
+        end if
+
+        // Backup the library if user chose to
+        if backupEnabled then
+            backupPath = backupFolder + "/" + packageName
+            print("<color=#80C7E7>Backing up:</color> " + packageName + " -> " + backupPath)
+            comp.File(lib).copy(backupFolder, packageName)
+        end if
+
+        print("<color=#80C7E7>Updating:</color> " + packageName + " -> " + installPath)
+
+        output = aptclient.install(packageName, installPath)
+
+        if output == true then
+            updatedCount = updatedCount + 1
+        else
+            print("<color=red>Error updating:</color> " + packageName + " (" + output + ")")
+        end if
+    end for
+
+    print("\n<color=#80C7E7>Upgrade complete!</color> <color=yellow>" + str(updatedCount) + " libraries updated.</color>")
+end function
+
+showMenu = function()
+    while true
+        print("==========================================================================")
+        print("<color=#80C7E7>Grey Hack Apt-Get Menu</color>")
+        print("<color=#80C7E7>1. <color=#77E088>Update package lists</color></color>")
+        print("<color=#80C7E7>2. <color=#77E088>Install package</color></color>")
+        print("<color=#80C7E7>3. <color=#77E088>Search package</color></color>")
+        print("<color=#80C7E7>4. <color=#77E088>Show repository info</color></color>")
+        print("<color=#80C7E7>5. <color=#77E088>Add repository</color></color>")
+        print("<color=#80C7E7>6. <color=#77E088>Remove repository</color></color>")
+        print("<color=#80C7E7>7. <color=#77E088>Upgrade packages</color></color>")
+        print("<color=#FF6B6B>8. <color=#FF6B6B>Exit</color></color>")
+        choice = user_input("<color=#80C7E7>What service would you like?</color>\n|<color=red>></color> ").to_int()
+
+        if choice == 1 then 
+            updateApt()
+        else if choice == 2 then
+            libraryInstall()
+        else if choice == 3 then
+            repositorySearch()
+        else if choice == 4 then
+            repositoryList()
+        else if choice == 5 then
+            repositoryAdd()
+        else if choice == 6 then
+            repositoryDel()
+        else if choice == 7 then
+            libraryUpgrade()
+        else if choice == 8 then
+            exit("<color=#80C7E7>Exiting Apt-Get Menu...</color>")
+        else 
+            print("<color=#FF6B6B>Invalid choice, please try again.</color>")
+        end if
+    end while
+end function
+
+showMenu()
