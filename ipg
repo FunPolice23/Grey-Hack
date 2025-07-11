@@ -1,0 +1,734 @@
+// IP Generator
+// Color constants
+COLOR_DEFAULT = "#009900"
+COLOR_ERROR = "#FF0000"
+COLOR_INFO = "#33CCFF"
+COLOR_WARNING = "#FFA500"
+COLOR_SUCCESS = "#00FF00"
+
+// Import utils.js
+import_code("/lib/utils")
+
+// Load metaxploit.so globally
+meta = null
+useMeta = false
+meta = include_lib("/lib/metaxploit.so")
+if not meta then
+    meta = include_lib(current_path + "/metaxploit.so")
+    if not meta then
+        printMsg("metaxploit.so is missing.", COLOR_WARNING, false)
+    end if
+end if
+if meta then
+    useMeta = true
+    printMsg("DEBUG: Metaxploit loaded successfully", COLOR_WARNING, false)
+else
+    printMsg("WARNING: Metaxploit not found, using basic scan", COLOR_WARNING, false)
+end if
+
+// Main execution
+main = function()
+    computer = get_shell.host_computer
+    if not computer then
+        print("<color=" + COLOR_ERROR + ">ERROR: Failed to get host computer</color>")
+        exit()
+    end if
+    
+    // Log home_dir and active_user
+    currentUser = active_user
+    homeDir = home_dir
+    print("<color=" + COLOR_WARNING + ">DEBUG: Active user: " + (currentUser or "null") + ", home_dir: " + (homeDir or "null") + "</color>")
+    
+    // Validate home_dir
+    if not homeDir or not computer.File(homeDir) then
+        print("<color=" + COLOR_WARNING + ">WARNING: Invalid or inaccessible home_dir: " + (homeDir or "null") + "</color>")
+        homeDir = "/home/guest"
+    end if
+
+    // Extract username from home_dir for config purposes
+    username = homeDir.split("/").pop()
+    if not username or username == "" then
+        printMsg("WARNING: Could not determine username from home_dir, using 'guest'", COLOR_WARNING)
+        username = "guest"
+    end if
+    configResult = getConfig(username)
+    currentConfig = configResult.config
+    printMsg("DEBUG: currentConfig initialized, lib: " + (currentConfig.lib or "null") + ", username: " + username, COLOR_WARNING)
+    
+    while true
+        menuResult = menu(currentConfig, username)
+        choice = menuResult.choice
+        currentConfig = menuResult.config
+        username = menuResult.username
+        choiceValue = choice
+        if not choice then
+            choiceValue = "null"
+        end if
+        printMsg("DEBUG: Menu returned choice: " + choiceValue + ", config type: " + typeof(currentConfig), COLOR_WARNING, not currentConfig.debugMode)
+        
+        if not choice then continue
+        choiceInt = choice.to_int
+        if choiceInt == 1 then
+            scanResult = ipGenerationMenu(currentConfig, username)
+            if not scanResult then
+                user_input("Press Enter to return to main menu...")
+                continue
+            end if
+            currentConfig = scanResult.config
+            username = scanResult.username
+            printMsg("DEBUG: ipGenerationMenu returned config type: " + typeof(currentConfig) + ", lib: " + currentConfig.lib, COLOR_WARNING, not currentConfig.debugMode)
+            result = scanLibrary(currentConfig.lib, currentConfig.ver, currentConfig.ipCountLimit, currentConfig.knownIps, currentConfig.scanLan, currentConfig.saveToFile, currentConfig.uniqueIps, currentConfig.silentMode, currentConfig.progressInterval, currentConfig.debugMode, currentConfig.port)
+        else if choiceInt == 2 then
+            configResult = configMenu(currentConfig, username)
+            currentConfig = configResult.config
+            username = configResult.username
+            printMsg("DEBUG: configMenu returned config type: " + typeof(currentConfig) + ", keys: " + currentConfig.indexes.join(","), COLOR_WARNING, not currentConfig.debugMode)
+            continue
+        else if choiceInt == 3 then
+            displayHelp()
+            continue
+        else if choiceInt == 4 then
+            if not currentConfig.hasIndex("lib") or not currentConfig.lib then
+                printMsg("No valid library set. Please select a library via Generate Random IPs or configure settings.", COLOR_ERROR)
+                user_input("Press Enter to continue...")
+                continue
+            end if
+            printMsg("DEBUG: Starting quick scan with lib: " + currentConfig.lib, COLOR_WARNING, not currentConfig.debugMode)
+            result = scanLibrary(currentConfig.lib, currentConfig.ver, currentConfig.ipCountLimit, currentConfig.knownIps, currentConfig.scanLan, currentConfig.saveToFile, currentConfig.uniqueIps, currentConfig.silentMode, currentConfig.progressInterval, currentConfig.debugMode, currentConfig.port)
+        else if choiceInt == 5 then
+            continue // Handled in menu()
+        end if
+        
+        if not currentConfig.silentMode then
+            printMsg("\nOptions:", COLOR_INFO)
+            printMsg("1: Rescan with same settings", COLOR_DEFAULT)
+            printMsg("2: Main Menu", COLOR_DEFAULT)
+            printMsg("3: Exit", COLOR_DEFAULT)
+        end if
+        choice = user_input("Choice (1-3): ").trim()
+        if choice == "1" then
+            printMsg("DEBUG: Rescanning with lib: " + currentConfig.lib, COLOR_WARNING, not currentConfig.debugMode)
+            result = scanLibrary(currentConfig.lib, currentConfig.ver, currentConfig.ipCountLimit, currentConfig.knownIps, currentConfig.scanLan, currentConfig.saveToFile, currentConfig.uniqueIps, currentConfig.silentMode, currentConfig.progressInterval, currentConfig.debugMode, currentConfig.port)
+        else if choice == "3" then
+            printMsg("Exiting...", COLOR_INFO)
+            exit()
+        end if
+    end while
+end function
+
+// Scan library function
+scanLibrary = function(lib, ver, ipCountLimit, knownIps, scanLan, saveToFile, uniqueIps, silentMode, progressInterval, debugMode, port=null)
+    matches = []
+    ipCount = 0
+    scannedIps = 0
+    scannedIpList = []
+    seenIps = {}
+    verStr = ""
+    if ver then
+        verStr = " v" + ver
+    end if
+    printMsg("Starting scan for " + lib + verStr + (port ? " on port " + port : ""), COLOR_SUCCESS, silentMode)
+    
+    // Parse version for comparison
+    verParts = null
+    if ver then
+        verParts = ver.split("\.")
+        printMsg("DEBUG: Parsed version parts: " + verParts.join(","), COLOR_WARNING, silentMode or not debugMode)
+    end if
+    
+    // Validate known IPs
+    validKnownIps = []
+    if knownIps then
+        for ip in knownIps
+            ip = ip.trim()
+            if validateIp(ip) then
+                validKnownIps.push(ip)
+            else
+                printMsg("WARNING: Invalid IP format: " + ip, COLOR_WARNING, silentMode or not debugMode)
+            end if
+        end for
+        validKnownIpsStr = "none"
+        if validKnownIps.len > 0 then
+            validKnownIpsStr = validKnownIps.join(",")
+        end if
+        printMsg("DEBUG: Valid known IPs: " + validKnownIpsStr, COLOR_WARNING, silentMode or not debugMode)
+    end if
+    
+    // Use global meta and useMeta for router scans
+    if lib == "router" then
+        useMeta = false
+        printMsg("DEBUG: Disabling metaxploit for router scan", COLOR_WARNING, silentMode or not debugMode)
+    end if
+    
+    // Scan IPs
+    maxAttempts = 50
+    attempt = 0
+    while ipCount < ipCountLimit and attempt < maxAttempts
+        ip = null
+        if validKnownIps.len > 0 then
+            ip = validKnownIps[attempt % validKnownIps.len]
+            printMsg("DEBUG: Using known IP: " + ip, COLOR_WARNING, silentMode or not debugMode)
+        else if scanLan then
+            ip = lan_ip()
+            ipValue = ip
+            if not ip then
+                ipValue = "null"
+            end if
+            printMsg("DEBUG: Attempting lan_ip(), attempt " + attempt + ": " + ipValue, COLOR_WARNING, silentMode or not debugMode)
+        else
+            ip = getRandomIp(seenIps, debugMode)
+            ipValue = ip
+            if not ip then
+                ipValue = "null"
+            end if
+            printMsg("DEBUG: Attempting getRandomIp(), attempt " + attempt + ": " + ipValue, COLOR_WARNING, silentMode or not debugMode)
+        end if
+        
+        if not ip then
+            printMsg("DEBUG: No IP found on attempt " + attempt, COLOR_WARNING, silentMode or not debugMode)
+            attempt = attempt + 1
+            continue
+        end if
+        
+        if uniqueIps and scannedIpList.indexOf(ip) != null then
+            printMsg("DEBUG: Skipping already scanned IP: " + ip, COLOR_WARNING, silentMode or not debugMode)
+            attempt = attempt + 1
+            continue
+        end if
+        
+        scannedIpList.push(ip)
+        scannedIps = scannedIps + 1
+        printMsg("DEBUG: Scanning IP: " + ip, COLOR_WARNING, silentMode or not debugMode)
+        
+        router = get_router(ip)
+        if not router then
+            printMsg("DEBUG: No router found for " + ip, COLOR_WARNING, silentMode or not debugMode)
+            attempt = attempt + 1
+            continue
+        end if
+        ipCount = ipCount + scanPorts(ip, router, lib, ver, matches, seenIps, uniqueIps, meta, useMeta, silentMode, debugMode, port)
+        
+        if scanLan then
+            ipCount = scanLanDevices(ip, lib, ver, matches, ipCount, seenIps, uniqueIps, meta, useMeta, silentMode, debugMode, port)
+        end if
+        
+        if progressInterval and scannedIps % progressInterval == 0 then
+            printMsg("Scanned " + scannedIps + " IPs, found " + ipCount + " matches", COLOR_INFO, silentMode)
+        end if
+        attempt = attempt + 1
+    end while
+    
+    if attempt >= maxAttempts then
+        printMsg("WARNING: Failed to find a valid IP after " + maxAttempts + " attempts", COLOR_WARNING, silentMode)
+    end if
+    
+    // Print and optionally save results
+    printMsg("Found Matches:", COLOR_INFO, silentMode)
+    if matches.len == 0 then
+        printMsg("No matches found.", COLOR_WARNING, silentMode)
+    else
+        resultLines = []
+        for match in matches
+            line = match.ip
+            if match.lan_ip then
+                line = line + " - " + match.lan_ip
+            else
+                line = line + " - None"
+            end if
+            if match.port then
+                line = line + " - " + match.port
+            else
+                line = line + " - None"
+            end if
+            line = line + " - " + match.ver
+            if match.vuln then
+                line = line + " (" + match.vuln + ")"
+            end if
+            printMsg(line, COLOR_DEFAULT, silentMode)
+            resultLines.push(line)
+        end for
+        if saveToFile then
+            computer = get_shell.host_computer
+            userDir = "/home/" + home_dir.split("/").pop()
+            filePath = userDir + "/scan_results.txt"
+            if computer.touch(userDir, "scan_results.txt") then
+                file = computer.File(filePath)
+                if file then
+                    file.set_content(resultLines.join("\n"))
+                    printMsg("Results saved to " + filePath, COLOR_SUCCESS, silentMode)
+                else
+                    printMsg("ERROR: Failed to create file at " + filePath, COLOR_ERROR, silentMode)
+                end if
+            else
+                printMsg("ERROR: Failed to touch file at " + filePath, COLOR_ERROR, silentMode)
+            end if
+        end if
+    end if
+    printMsg("Scanned " + scannedIps + " IPs, found " + ipCount + " matches", COLOR_INFO, silentMode)
+    
+    return {"matches": matches, "ipCount": ipCount, "scannedIps": scannedIps}
+end function
+
+// [menu unchanged]
+menu = function(currentConfig, username)
+    clear_screen
+    printMsg("===================== IP Scanner Menu =====================", COLOR_INFO)
+    printMsg("Select an option to generate IPs, configure settings, or view help", COLOR_DEFAULT)
+    printMsg("--------------------------------------------------------", COLOR_INFO)
+    
+    // Validate currentConfig
+    defaultConfig = {
+        "lib": "ssh",
+        "ver": null,
+        "ipCountLimit": 10,
+        "knownIps": null,
+        "scanLan": false,
+        "saveToFile": false,
+        "uniqueIps": true,
+        "silentMode": false,
+        "progressInterval": 100,
+        "debugMode": false,
+        "port": null,
+    }
+    if currentConfig == null or typeof(currentConfig) != "map" then
+        printMsg("WARNING: Invalid currentConfig, using defaults", COLOR_WARNING)
+        currentConfig = defaultConfig
+    end if
+    for key in defaultConfig.indexes
+        if not currentConfig.hasIndex(key) then
+            printMsg("DEBUG: Missing key " + key + " in currentConfig, using default", COLOR_WARNING, not currentConfig.debugMode)
+            currentConfig[key] = defaultConfig[key]
+        end if
+    end for
+    
+    // Display current configuration preview
+    usernameValue = username
+    if not username then
+        usernameValue = "null"
+    end if
+    printMsg("DEBUG: currentConfig type: " + typeof(currentConfig) + ", username: " + usernameValue, COLOR_WARNING, not currentConfig.debugMode)
+    configStr = "Current Config: "
+    if username then
+        configStr = configStr + "(User: " + username + ") "
+    end if
+    if currentConfig.hasIndex("lib") and currentConfig.lib then
+        configStr = configStr + currentConfig.lib
+        if currentConfig.hasIndex("ver") and currentConfig.ver then
+            configStr = configStr + " v" + currentConfig.ver
+        end if
+    else
+        configStr = configStr + "None"
+    end if
+    if currentConfig.hasIndex("port") and currentConfig.port then
+        configStr = configStr + ", Port: " + currentConfig.port
+    end if
+    if currentConfig.hasIndex("scanLan") and currentConfig.scanLan then
+        configStr = configStr + ", LAN scan enabled"
+    end if
+    if currentConfig.hasIndex("saveToFile") and currentConfig.saveToFile then
+        configStr = configStr + ", Save to file enabled"
+    end if
+    if currentConfig.hasIndex("silentMode") and currentConfig.silentMode then
+        configStr = configStr + ", Silent mode"
+    end if
+    if currentConfig.hasIndex("debugMode") and currentConfig.debugMode then
+        configStr = configStr + ", Debug mode"
+    end if
+    printMsg(configStr, COLOR_WARNING)
+    printMsg(" ", COLOR_DEFAULT)
+    
+    // Menu options
+    printMsg("1: Generate Random IPs", COLOR_DEFAULT)
+    printMsg("2: Settings", COLOR_DEFAULT)
+    printMsg("3: Help", COLOR_DEFAULT)
+    printMsg("4: Quick scan with current settings", COLOR_DEFAULT)
+    printMsg("5: Reset configuration to defaults", COLOR_DEFAULT)
+    printMsg("0: Exit", COLOR_DEFAULT)
+    printMsg(" ", COLOR_DEFAULT)
+    printMsg("New users: Try 3 for help or 2 to configure settings.", COLOR_DEFAULT)
+    printMsg("--------------------------------------------------------", COLOR_INFO)
+    
+    choice = user_input("Enter number (0-5): ").trim()
+    choiceInt = choice.to_int
+    if choice == "" or choiceInt < 0 or choiceInt > 5 then
+        printMsg("Invalid input. Please enter a number between 0 and 5.", COLOR_ERROR)
+        user_input("Press Enter to continue...")
+        return {"choice": null, "config": currentConfig, "username": username}
+    end if
+    
+    if choiceInt == 0 then
+        confirm = user_input("Confirm exit? (y/n): ").trim().lower()
+        if confirm == "y" then
+            printMsg("Exiting IP Scanner...", COLOR_INFO)
+            exit()
+        else
+            printMsg("Exit canceled.", COLOR_SUCCESS)
+            user_input("Press Enter to continue...")
+            return {"choice": null, "config": currentConfig, "username": username}
+        end if
+    else if choiceInt == 5 then
+        configResult = getConfig(username)
+        printMsg("Configuration reset to defaults.", COLOR_SUCCESS)
+        user_input("Press Enter to continue...")
+        return {"choice": null, "config": configResult.config, "username": username}
+    end if
+    
+    return {"choice": choice, "config": currentConfig, "username": username}
+end function
+
+ipGenerationMenu = function(currentConfig, username)
+    clear_screen
+    libMap = {
+        "1": "ssh",
+        "2": "repository",
+        "3": "chat",
+        "4": "http",
+        "5": "ftp",
+        "6": "rshell",
+        "7": "router",
+    }
+    printMsg("===================== IP Generation Menu =====================", COLOR_INFO)
+    printMsg("Select a library to scan for", COLOR_DEFAULT)
+    printMsg("--------------------------------------------------------", COLOR_INFO)
+    
+    // Display current settings
+    configStr = "Current Settings: "
+    if username then
+        configStr = configStr + "(User: " + username + ") "
+    end if
+    configStr = configStr + "Max IPs: " + currentConfig.ipCountLimit
+    if currentConfig.port then
+        configStr = configStr + ", Port: " + currentConfig.port
+    end if
+    if currentConfig.scanLan then
+        configStr = configStr + ", LAN scan enabled"
+    end if
+    if currentConfig.saveToFile then
+        configStr = configStr + ", Save to file enabled"
+    end if
+    if currentConfig.silentMode then
+        configStr = configStr + ", Silent mode"
+    end if
+    if currentConfig.debugMode then
+        configStr = configStr + ", Debug mode"
+    end if
+    printMsg(configStr, COLOR_WARNING)
+    printMsg(" ", COLOR_DEFAULT)
+    
+    // Library options
+    printMsg("Library Scanning Options:", COLOR_INFO)
+    printMsg("1: Scan for ssh (Secure Shell)", COLOR_DEFAULT)
+    printMsg("2: Scan for repository (Version Control)", COLOR_DEFAULT)
+    printMsg("3: Scan for chat (Messaging Services)", COLOR_DEFAULT)
+    printMsg("4: Scan for http (Web Servers)", COLOR_DEFAULT)
+    printMsg("5: Scan for ftp (File Transfer)", COLOR_DEFAULT)
+    printMsg("6: Scan for rshell (Remote Shell)", COLOR_DEFAULT)
+    printMsg("7: Scan for router (Router Firmware)", COLOR_DEFAULT)
+    printMsg("0: Return to main menu", COLOR_DEFAULT)
+    printMsg("--------------------------------------------------------", COLOR_INFO)
+    
+    choice = user_input("Enter number (0-7): ").trim()
+    choiceInt = choice.to_int
+    if choice == "" or choiceInt < 0 or choiceInt > 7 then
+        printMsg("Invalid input. Please enter a number between 0 and 7.", COLOR_ERROR)
+        user_input("Press Enter to continue...")
+        return null
+    end if
+    if choiceInt == 0 then
+        return null
+    end if
+    if not libMap.hasIndex(choice) then
+        printMsg("ERROR: Invalid library choice", COLOR_ERROR)
+        user_input("Press Enter to continue...")
+        return null
+    end if
+    
+    lib = libMap[choice]
+    clear_screen
+    printMsg("===================== Configure Scan for " + lib + " =====================", COLOR_INFO)
+    printMsg("Using settings from current configuration. Change others in Settings (Main Menu option 2).", COLOR_DEFAULT)
+    printMsg("--------------------------------------------------------", COLOR_INFO)
+    printMsg(configStr, COLOR_WARNING)
+    printMsg(" ", COLOR_DEFAULT)
+    
+    printMsg("Library: " + lib, COLOR_INFO)
+    ver = user_input("Enter version (e.g., 1.0.2, or blank for any): ").trim()
+    if ver == "" then
+        ver = null
+    end if
+    
+    printMsg("--------------------------------------------------------", COLOR_INFO)
+    verStr = ""
+    if ver then
+        verStr = " v" + ver
+    end if
+    printMsg("Starting scan for " + lib + verStr, COLOR_SUCCESS)
+    user_input("Press Enter to begin scan...")
+    
+    newConfig = {
+        "lib": lib,
+        "ver": ver,
+        "ipCountLimit": currentConfig.ipCountLimit,
+        "knownIps": currentConfig.knownIps,
+        "scanLan": currentConfig.scanLan,
+        "saveToFile": currentConfig.saveToFile,
+        "uniqueIps": currentConfig.uniqueIps,
+        "silentMode": currentConfig.silentMode,
+        "progressInterval": currentConfig.progressInterval,
+        "debugMode": currentConfig.debugMode,
+        "port": currentConfig.port,
+    }
+    printMsg("DEBUG: Returning newConfig with lib=" + lib + ", ipCountLimit=" + newConfig.ipCountLimit, COLOR_WARNING, not newConfig.debugMode)
+    return {"config": newConfig, "username": username}
+end function
+
+displayHelp = function()
+    clear_screen
+    printMsg("===================== IP Scanner Help =====================", COLOR_INFO)
+    printMsg("Scans for IPs running specific libraries or router versions.", COLOR_DEFAULT)
+    printMsg("--------------------------------------------------------", COLOR_INFO)
+    printMsg("\nFeatures:", COLOR_INFO)
+    printMsg("- Scans public and LAN IPs (e.g., 192.168.x.x)", COLOR_DEFAULT)
+    printMsg("- Uses metaxploit.so for vulnerability detection", COLOR_DEFAULT)
+    printMsg("- Displays results in console (public IP - LAN IP - port - version)", COLOR_DEFAULT)
+    printMsg("- Configurable: library, port, LAN scanning, unique IPs, silent mode, debug mode, save to file", COLOR_DEFAULT)
+    printMsg("- Saves configuration to /home/<user>/scan_config.txt", COLOR_DEFAULT)
+    printMsg("- Saves scan results to /home/<user>/scan_results.txt (if enabled)", COLOR_DEFAULT)
+    printMsg("\nUsage Tips:", COLOR_INFO)
+    printMsg("- Known IPs: e.g., 203.0.113.1,69.108.255.142", COLOR_DEFAULT)
+    printMsg("- Specify port: e.g., 6667 for chat, 80/443 for http", COLOR_DEFAULT)
+    printMsg("- Enable LAN scan for devices behind routers", COLOR_DEFAULT)
+    printMsg("- Specify versions: e.g., ssh v1.0.2", COLOR_DEFAULT)
+    printMsg("- Silent mode for multiplayer (Streaming Mode)", COLOR_DEFAULT)
+    printMsg("- Debug mode for detailed logging (enable in Settings)", COLOR_DEFAULT)
+    printMsg("- Save to file to keep scan results", COLOR_DEFAULT)
+    printMsg("- Use vuln addresses with metaxploit.overflow", COLOR_DEFAULT)
+    printMsg("- Run ntp to sync time for exploits", COLOR_DEFAULT)
+    printMsg("--------------------------------------------------------", COLOR_INFO)
+    printMsg("Press Enter to return to main menu", COLOR_DEFAULT)
+    user_input("")
+end function
+
+configMenu = function(currentConfig, username)
+    clear_screen
+    defaultConfig = {
+        "lib": "ssh",
+        "ver": null,
+        "ipCountLimit": 10,
+        "knownIps": null,
+        "scanLan": false,
+        "saveToFile": false,
+        "uniqueIps": true,
+        "silentMode": false,
+        "progressInterval": 100,
+        "debugMode": false,
+        "port": null,
+    }
+    if currentConfig == null or typeof(currentConfig) != "map" then
+        printMsg("WARNING: Invalid currentConfig, using defaults", COLOR_WARNING)
+        currentConfig = defaultConfig
+    end if
+    for key in defaultConfig.indexes
+        if not currentConfig.hasIndex(key) then
+            printMsg("DEBUG: Missing key " + key + " in currentConfig, using default", COLOR_WARNING, not currentConfig.debugMode)
+            currentConfig[key] = defaultConfig[key]
+        end if
+    end for
+    
+    printMsg("===================== Settings Menu =====================", COLOR_INFO)
+    printMsg("Configure scan settings", COLOR_DEFAULT)
+    printMsg("--------------------------------------------------------", COLOR_INFO)
+    printMsg("Current Configuration:", COLOR_INFO)
+    libStr = "Library: " + currentConfig.lib
+    if currentConfig.ver then
+        libStr = libStr + " v" + currentConfig.ver
+    end if
+    printMsg(libStr, COLOR_DEFAULT)
+    printMsg("Max IPs: " + currentConfig.ipCountLimit, COLOR_DEFAULT)
+    knownIpsStr = "Known IPs: "
+    if currentConfig.knownIps then
+        knownIpsStr = knownIpsStr + currentConfig.knownIps.join(", ")
+    else
+        knownIpsStr = knownIpsStr + "None"
+    end if
+    printMsg(knownIpsStr, COLOR_DEFAULT)
+    scanLanStr = "Scan LAN: "
+    if currentConfig.scanLan then
+        scanLanStr = scanLanStr + "Yes"
+    else
+        scanLanStr = scanLanStr + "No"
+    end if
+    printMsg(scanLanStr, COLOR_DEFAULT)
+    saveToFileStr = "Save to file: "
+    if currentConfig.saveToFile then
+        saveToFileStr = saveToFileStr + "Yes"
+    else
+        saveToFileStr = saveToFileStr + "No"
+    end if
+    printMsg(saveToFileStr, COLOR_DEFAULT)
+    uniqueIpsStr = "Unique IPs: "
+    if currentConfig.uniqueIps then
+        uniqueIpsStr = uniqueIpsStr + "Yes"
+    else
+        uniqueIpsStr = uniqueIpsStr + "No"
+    end if
+    printMsg(uniqueIpsStr, COLOR_DEFAULT)
+    silentModeStr = "Silent mode: "
+    if currentConfig.silentMode then
+        silentModeStr = silentModeStr + "Yes"
+    else
+        silentModeStr = silentModeStr + "No"
+    end if
+    printMsg(silentModeStr, COLOR_DEFAULT)
+    debugModeStr = "Debug mode: "
+    if currentConfig.debugMode then
+        debugModeStr = debugModeStr + "Yes"
+    else
+        debugModeStr = debugModeStr + "No"
+    end if
+    printMsg(debugModeStr, COLOR_DEFAULT)
+    printMsg("Progress interval: " + currentConfig.progressInterval, COLOR_DEFAULT)
+    portStr = "Port: "
+    if currentConfig.port then
+        portStr = portStr + currentConfig.port
+    else
+        portStr = portStr + "Any"
+    end if
+    printMsg(portStr, COLOR_DEFAULT)
+    printMsg("--------------------------------------------------------", COLOR_INFO)
+    
+    printMsg("Options:", COLOR_INFO)
+    printMsg("1: Change version", COLOR_DEFAULT)
+    printMsg("2: Change max IPs", COLOR_DEFAULT)
+    printMsg("3: Change known IPs", COLOR_DEFAULT)
+    printMsg("4: Toggle LAN scan", COLOR_DEFAULT)
+    printMsg("5: Toggle unique IPs", COLOR_DEFAULT)
+    printMsg("6: Toggle silent mode", COLOR_DEFAULT)
+    printMsg("7: Change progress interval", COLOR_DEFAULT)
+    printMsg("8: Toggle debug mode", COLOR_DEFAULT)
+    printMsg("9: Save configuration", COLOR_DEFAULT)
+    printMsg("10: Change library", COLOR_DEFAULT)
+    printMsg("11: Change port", COLOR_DEFAULT)
+    printMsg("12: Toggle save to file", COLOR_DEFAULT)
+    printMsg("0: Return to main menu", COLOR_DEFAULT)
+    
+    choice = user_input("Choice (0-12): ").trim()
+    choiceInt = choice.to_int
+    if choice == "" or choiceInt < 0 or choiceInt > 12 then
+        printMsg("Invalid input. Please enter a number between 0 and 12.", COLOR_ERROR)
+        user_input("Press Enter to continue...")
+        return configMenu(currentConfig, username)
+    end if
+    
+    if choiceInt == 1 then
+        currentConfig.ver = user_input("Enter version (e.g., 1.0.2, or blank for any): ").trim()
+        if currentConfig.ver == "" then currentConfig.ver = null
+    else if choiceInt == 2 then
+        ipCountLimit = user_input("Enter max IPs to find (default 10): ").trim().to_int
+        if ipCountLimit > 0 then
+            currentConfig.ipCountLimit = ipCountLimit
+        else
+            printMsg("Invalid input, using default (10).", COLOR_WARNING)
+            currentConfig.ipCountLimit = 10
+        end if
+    else if choiceInt == 3 then
+        knownIpsStr = user_input("Enter known IPs (comma-separated, or blank): ").trim()
+        if knownIpsStr == "" then
+            currentConfig.knownIps = null
+        else
+            currentConfig.knownIps = knownIpsStr.split(",")
+        end if
+    else if choiceInt == 4 then
+        currentConfig.scanLan = not currentConfig.scanLan
+        scanLanMsg = "LAN scan "
+        if currentConfig.scanLan then
+            scanLanMsg = scanLanMsg + "enabled"
+        else
+            scanLanMsg = scanLanMsg + "disabled"
+        end if
+        printMsg(scanLanMsg, COLOR_SUCCESS)
+    else if choiceInt == 5 then
+        currentConfig.uniqueIps = not currentConfig.uniqueIps
+        uniqueIpsMsg = "Unique IPs "
+        if currentConfig.uniqueIps then
+            uniqueIpsMsg = uniqueIpsMsg + "enabled"
+        else
+            uniqueIpsMsg = uniqueIpsMsg + "disabled"
+        end if
+        printMsg(uniqueIpsMsg, COLOR_SUCCESS)
+    else if choiceInt == 6 then
+        currentConfig.silentMode = not currentConfig.silentMode
+        silentModeMsg = "Silent mode "
+        if currentConfig.silentMode then
+            silentModeMsg = silentModeMsg + "enabled"
+        else
+            silentModeMsg = silentModeMsg + "disabled"
+        end if
+        printMsg(silentModeMsg, COLOR_SUCCESS)
+    else if choiceInt == 7 then
+        progressInterval = user_input("Progress update interval (0 to disable, default 100): ").trim().to_int
+        if progressInterval >= 0 then
+            currentConfig.progressInterval = progressInterval
+        else
+            printMsg("Invalid input, using default (100).", COLOR_WARNING)
+            currentConfig.progressInterval = 100
+        end if
+    else if choiceInt == 8 then
+        currentConfig.debugMode = not currentConfig.debugMode
+        debugModeMsg = "Debug mode "
+        if currentConfig.debugMode then
+            debugModeMsg = debugModeMsg + "enabled"
+        else
+            debugModeMsg = debugModeMsg + "disabled"
+        end if
+        printMsg(debugModeMsg, COLOR_SUCCESS)
+    else if choiceInt == 9 then
+        username = saveConfig(currentConfig, username)
+        usernameValue = username
+        if not username then
+            usernameValue = "null"
+        end if
+        printMsg("DEBUG: Config saved for user: " + usernameValue, COLOR_WARNING, not currentConfig.debugMode)
+    else if choiceInt == 10 then
+        printMsg("Available libraries: ssh, repository, chat, http, ftp, rshell, router", COLOR_INFO)
+        lib = user_input("Enter library (or blank to keep current): ").trim().lower()
+        if lib == "" then
+            printMsg("Library unchanged: " + currentConfig.lib, COLOR_SUCCESS)
+        else if ["ssh", "repository", "chat", "http", "ftp", "rshell", "router"].indexOf(lib) != null then
+            currentConfig.lib = lib
+            printMsg("Library set to: " + lib, COLOR_SUCCESS)
+        else
+            printMsg("Invalid library. Keeping current: " + currentConfig.lib, COLOR_ERROR)
+        end if
+    else if choiceInt == 11 then
+        port = user_input("Enter port (e.g., 6667 for chat, 80 for http, blank for any): ").trim()
+        if port == "" then
+            currentConfig.port = null
+            printMsg("Port set to: Any", COLOR_SUCCESS)
+        else
+            portNum = port.to_int
+            if portNum > 0 and portNum <= 65535 then
+                currentConfig.port = portNum
+                printMsg("Port set to: " + portNum, COLOR_SUCCESS)
+            else
+                printMsg("Invalid port. Keeping current: " + (currentConfig.port or "Any"), COLOR_ERROR)
+            end if
+        end if
+    else if choiceInt == 12 then
+        currentConfig.saveToFile = not currentConfig.saveToFile
+        saveToFileMsg = "Save to file "
+        if currentConfig.saveToFile then
+            saveToFileMsg = saveToFileMsg + "enabled"
+        else
+            saveToFileMsg = saveToFileMsg + "disabled"
+        end if
+        printMsg(saveToFileMsg, COLOR_SUCCESS)
+    else if choiceInt == 0 then
+        printMsg("DEBUG: Returning config from configMenu, keys: " + currentConfig.indexes.join(","), COLOR_WARNING, not currentConfig.debugMode)
+        return {"config": currentConfig, "username": username}
+    end if
+    user_input("Press Enter to continue...")
+    return configMenu(currentConfig, username)
+end function
+
+main()
