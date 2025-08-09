@@ -1,0 +1,385 @@
+// Function to display menu options
+ShowOptions = function(options)
+    print("\n[Options]")
+    i = 1
+    for option in options
+        print("["+ i +"] - " + option)
+        i = i + 1
+    end for
+    inputOk = false
+    option = 0
+    while(true)
+        option = user_input("\n[Select option]: ").to_int
+        if typeof(option) == "number" and option <= i and option >= 1 then
+            return option
+        else
+            print("Invalid option. Please input a valid number")
+        end if
+    end while
+end function
+
+// Main menu
+MainMenu = function()
+    print("########################\n### WALLET MAIN MENU ###\n########################", true)
+    wait(0.1)
+    return ShowOptions(["Login", "Create wallet", "Exit"])
+end function
+
+// LoginWallet
+LoginWallet = function()
+    print("####################\n### WALLET LOGIN ###\n####################\n", true)
+    wait(0.1)
+    wallet = null
+    user = "example"  // wallet username
+    pass = "example" // wallet password
+    print("Logging in as: " + user)
+    wallet = blockchain.login_wallet(user, pass)
+    if typeof(wallet) == "string" then
+        print("Login failed: " + wallet)
+        back = user_input("Back to main menu?(y/n): ")
+        if(back == "y" or back == "yes") then
+            return "back"
+        end if
+    else if typeof(wallet) == "wallet" then
+        print("Login successful!")
+    else
+        print("Unexpected error during login")
+        return "back"
+    end if
+    return wallet
+end function
+
+// Create wallet function
+CreateWallet = function()
+    print("#######################\n### WALLET CREATION ###\n#######################\n", true)
+    wait(0.1)
+    user = user_input("Insert username: ")
+    pass = user_input("Insert password: ", true)
+    wallet = blockchain.create_wallet(user, pass)
+    if typeof(wallet) == "wallet" then
+        user_input("Wallet created successfully!\nPress any key to continue", false, true)
+        ShowWallet(wallet)
+    else
+        print("Error: " + wallet)
+        user_input("Press any key to continue", false, true)
+        StartProgram()
+    end if 
+end function
+
+// Log transactions to a file
+LogTransaction = function(wallet, action, coinName, amount, unitPrice, subwalletUser)
+    timestamp = time()
+    logEntry = "[" + timestamp + "] " + action + " " + amount + " " + coinName + " at $" + unitPrice + " by " + subwalletUser
+    file = get_shell.host_computer.File("/home/user/wallet_log.txt")
+    if file then
+        file.set_content(file.get_content + "\n" + logEntry)
+    else
+        newFile = get_shell.host_computer.touch("/home/user", "wallet_log.txt")
+        newFile.set_content(logEntry)
+    end if
+end function
+
+// Track balance history
+TrackBalance = function(wallet, balanceHistory)
+    listCoins = wallet.list_coins
+    if typeof(listCoins) == "string" then
+        return balanceHistory  // Skip if list_coins fails
+    end if
+    currentBalances = {}
+    for itemCoin in listCoins
+        coins = wallet.get_balance(itemCoin)
+        if typeof(coins) == "number" then
+            currentBalances[itemCoin] = coins
+        end if
+    end for
+    balanceHistory.push({"time": time(), "balances": currentBalances})
+    return balanceHistory
+end function
+
+// Show wallet details with enhanced features
+ShowWallet = function(wallet)
+    // Initialize balance history
+    if not globals.hasIndex("balanceHistory") then
+        globals.balanceHistory = []
+    end if
+    globals.balanceHistory = TrackBalance(wallet, globals.balanceHistory)
+
+    print("#####################\n### WALLET DETAIL ###\n#####################\n", true)
+    wait(0.1)
+    print("Wallet User: lazybones")
+    print("\nBalance:")
+    listCoins = wallet.list_coins
+    if typeof(listCoins) == "string" then
+        print("Error retrieving coins: " + listCoins)
+    else if listCoins.len == 0 then
+        print("Empty wallet")
+    else
+        for itemCoin in listCoins
+            coins = wallet.get_balance(itemCoin)
+            if typeof(coins) == "number" then
+                print("[ " + itemCoin + " ==> " + coins + " coins ]")
+            else
+                print("[ " + itemCoin + " ==> Error: " + coins + " ]")
+            end if
+        end for
+    end if
+
+    // Display active miners
+    print("\nActive Miners:")
+    if typeof(listCoins) == "list" and listCoins.len > 0 then
+        for coin in listCoins
+            miners = wallet.show_nodes(coin)
+            if typeof(miners) == "number" then
+                print("[ " + coin + " ==> " + miners + " active miners ]")
+            else
+                print("[ " + coin + " ==> Error: " + miners + " ]")
+            end if
+        end for
+    else
+        print("No coins to check for miners")
+    end if
+
+    // Menu with updated options
+    option = ShowOptions(["Buy coins", "Sell coins", "Pending trade", "Cancel trade", "Show global offers", "Show PIN", "Reset password", "View balance history", "View transaction log", "Refresh balance", "Exit"])
+
+    if option == 1 then
+        print("Purchasing coins...")
+        coinName = user_input("Insert coin name: ").upper
+        if coinName == "" or typeof(coinName) != "string" then
+            print("Error: Invalid coin name")
+            user_input("Press any key to continue", false, true)
+            ShowWallet(wallet)
+            return
+        end if
+        amount = user_input("Insert the amount of coins to buy: ").val
+        if amount <= 0 then
+            print("Error: Amount must be positive")
+            user_input("Press any key to continue", false, true)
+            ShowWallet(wallet)
+            return
+        end if
+        unitPrice = user_input("Insert the proposed price per unit: ").val
+        if unitPrice <= 0 then
+            print("Error: Price must be positive")
+            user_input("Press any key to continue", false, true)
+            ShowWallet(wallet)
+            return
+        end if
+        subwalletUser = user_input("Insert your subwallet user: ")
+        output = wallet.buy_coin(coinName, amount, unitPrice, subwalletUser)
+        if output == 1 then
+            LogTransaction(wallet, "Bought", coinName, amount, unitPrice, subwalletUser)
+            print("Successfully created purchase offer!")
+            user_input("Press any key to continue", false, true)
+        else
+            print("Error: " + output)
+            user_input("Press any key to continue", false, true)
+        end if 
+
+    else if option == 2 then
+        print("Selling coins...")
+        coinName = user_input("Insert coin name: ").upper
+        if coinName == "" or typeof(coinName) != "string" then
+            print("Error: Invalid coin name")
+            user_input("Press any key to continue", false, true)
+            ShowWallet(wallet)
+            return
+        end if
+        amount = user_input("Insert the amount of coins to sell: ").val
+        if amount <= 0 then
+            print("Error: Amount must be positive")
+            user_input("Press any key to continue", false, true)
+            ShowWallet(wallet)
+            return
+        end if
+        unitPrice = user_input("Insert the proposed price per unit: ").val
+        if unitPrice <= 0 then
+            print("Error: Price must be positive")
+            user_input("Press any key to continue", false, true)
+            ShowWallet(wallet)
+            return
+        end if
+        subwalletUser = user_input("Insert your subwallet user: ")    
+        output = wallet.sell_coin(coinName, amount, unitPrice, subwalletUser)         
+        if output == 1 then
+            LogTransaction(wallet, "Sold", coinName, amount, unitPrice, subwalletUser)
+            print("Successfully created sell offer!")
+            user_input("Press any key to continue", false, true)
+        else
+            print("Error: " + output)
+            user_input("Press any key to continue", false, true)
+        end if
+
+    else if option == 3 then
+        print("Listing pending trade...")
+        coinName = user_input("Insert coin name: ").upper
+        if coinName == "" or typeof(coinName) != "string" then
+            print("Error: Invalid coin name")
+            user_input("Press any key to continue", false, true)
+            ShowWallet(wallet)
+            return
+        end if
+        info = wallet.get_pending_trade(coinName)
+        if typeof(info) == "list" then
+            print(info[0] + " Offer: " + info[1] + " coins | Unit price: $" + info[2])
+        else if info == null then
+            print("Error: Invalid coin name")
+        else
+            print("Error: " + info)
+        end if
+        user_input("Press any key to continue", false, true)
+
+    else if option == 4 then
+        print("Canceling pending trade...")
+        coinName = user_input("Insert coin name: ").upper
+        if coinName == "" or typeof(coinName) != "string" then
+            print("Error: Invalid coin name")
+            user_input("Press any key to continue", false, true)
+            ShowWallet(wallet)
+            return
+        end if
+        output = wallet.cancel_pending_trade(coinName)
+        if output == "" then
+            print("Trade cancelled")
+        else if output == null then
+            print("Error: Invalid coin name")
+        else
+            print("Error: " + output)
+        end if
+        user_input("Press any key to continue", false, true)
+
+    else if option == 5 then
+        print("Show global offers...")
+        coinsList = wallet.list_global_coins
+        if typeof(coinsList) == "string" then
+            print("Error retrieving global coins: " + coinsList)
+            user_input("Press any key to continue", false, true)
+            ShowWallet(wallet)
+            return
+        end if
+        print("\n[ Global Coins ]")
+        idx = 0
+        for c in coinsList
+            print("[" + idx + "] " + c)
+            idx = idx + 1
+        end for
+        coinIndex = user_input("\nSelect coin number: ").to_int
+        if typeof(coinIndex) != "number" or coinIndex < 0 or coinIndex >= coinsList.len then
+            print("Error: Invalid coin selection")
+            user_input("Press any key to continue", false, true)
+            ShowWallet(wallet)
+            return
+        end if
+        coinName = coinsList[coinIndex]
+        info = wallet.get_global_offers(coinName)
+        if typeof(info) == "map" then
+            if info.len == 0 then
+                print("No offers available for " + coinName)
+            else
+                for item in info.indexes
+                    print("[" + item + "] " + info[item][0] + " Offer: " + info[item][1] + " coins | Unit price: $" + info[item][2])
+                end for
+            end if
+        else if info == null then
+            print("Error: Invalid coin name")
+        else
+            print("Error: " + info)
+        end if
+        user_input("Press any key to continue", false, true)
+
+    else if option == 6 then 
+        pin = wallet.get_pin
+        if typeof(pin) == "string" then
+            print("PIN: " + pin)
+            print("This is the PIN used to register in a coin-store. It renews automatically in a few minutes.")
+        else
+            print("Error retrieving PIN")
+        end if
+        user_input("Press any key to continue", false, true)
+
+    else if option == 7 then
+        print("Resetting password...")
+        print("WARNING: After resetting, you MUST update the hardcoded password in the script (pass =) to the new password and recompile the script.")
+        newPassword = user_input("Insert new password: ", true)
+        if newPassword == "" then
+            print("Error: Password cannot be empty")
+            user_input("Press any key to continue", false, true)
+            ShowWallet(wallet)
+            return
+        end if
+        result = wallet.reset_password(newPassword)
+        if result == 1 then
+            print("Password reset successfully!")
+            print("ACTION REQUIRED: Edit the script to change pass = in the LoginWallet function, then recompile and restart the script.")
+        else if result == null then
+            print("Error: Invalid password format")
+        else
+            print("Error: " + result)
+        end if
+        user_input("Press any key to continue", false, true)
+
+    else if option == 8 then
+        print("Balance History:")
+        if globals.balanceHistory.len == 0 then
+            print("No balance history available")
+        else
+            for entry in globals.balanceHistory
+                print("Time: " + entry.time)
+                for coin in entry.balances.indexes
+                    print("  " + coin + ": " + entry.balances[coin] + " coins")
+                end for
+            end for
+        end if
+        user_input("Press any key to continue", false, true)
+
+    else if option == 9 then
+        print("Transaction Log:")
+        file = get_shell.host_computer.File("/home/user/wallet_log.txt")
+        if file then
+            print(file.get_content)
+        else
+            print("No transactions recorded yet")
+        end if
+        user_input("Press any key to continue", false, true)
+
+    else if option == 10 then
+        print("Refreshing balance...")
+        globals.balanceHistory = TrackBalance(wallet, globals.balanceHistory)
+        print("Balance updated!")
+        user_input("Press any key to continue", false, true)
+
+    else if option == 11 then 
+        exit
+    end if
+    ShowWallet(wallet)
+end function
+
+// Start program
+StartProgram = function()
+    option = MainMenu()
+    if option == 1 then
+        wallet = LoginWallet()
+        if typeof(wallet) != "wallet" then
+            StartProgram()
+            return
+        end if
+        ShowWallet(wallet)        
+    else if option == 2 then
+        CreateWallet()
+    else if option == 3 then 
+        exit
+    end if
+end function
+
+// Blockchain library loading
+blockchain = include_lib("/lib/blockchain.so")
+if not blockchain then
+    blockchain = include_lib(current_path + "/blockchain.so")
+end if
+if not blockchain then    
+    get_shell.launch("/bin/apt-get", "update")
+    get_shell.launch("/bin/apt-get", "install blockchain.so")
+    blockchain = include_lib("/lib/blockchain.so")
+end if
+if not blockchain then exit("Error: Missing blockchain.so library in the /lib path or the current folder")
+StartProgram()
